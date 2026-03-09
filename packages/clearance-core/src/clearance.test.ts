@@ -136,6 +136,37 @@ describe('createClearance', () => {
         })
       ).not.toThrow()
     })
+
+    it('should enforce limit case-insensitively (eth and ETH share the same budget)', () => {
+      const clearance = createClearance(baseOptions) // spendLimit: { ETH: 1 ETH }
+      // First call with lowercase 'eth' — 0.6 ETH
+      expect(() =>
+        clearance.validate({
+          action: 'swap',
+          contract: '0xUniswap',
+          spend: { token: 'eth', amount: 600_000_000_000_000_000n },
+        })
+      ).not.toThrow()
+      // Second call with uppercase 'ETH' — same budget, cumulative 1.2 ETH → should fail
+      expect(() =>
+        clearance.validate({
+          action: 'swap',
+          contract: '0xUniswap',
+          spend: { token: 'ETH', amount: 600_000_000_000_000_000n },
+        })
+      ).toThrow('Cumulative spend of 1200000000000000000 for "ETH" exceeds limit 1000000000000000000')
+    })
+
+    it('should track unlimited tokens in spentAmounts for audit purposes', () => {
+      const clearance = createClearance(baseOptions) // USDC has no limit
+      clearance.validate({
+        action: 'swap',
+        contract: '0xUniswap',
+        spend: { token: 'USDC', amount: 5_000_000n },
+      })
+      // USDC spend should be tracked even without a limit
+      expect(clearance.spentAmounts['USDC']).toBe(5_000_000n)
+    })
   })
 
   describe('expiry', () => {
@@ -187,6 +218,19 @@ describe('createClearance', () => {
       fakeNow = 1_000_000 + 7_200_000 // 2h later — expired
       expect(() =>
         clearance.validate({ action: 'swap', contract: '0xUniswap' })
+      ).toThrow('Clearance for agent "0xagent" has expired')
+    })
+
+    it('should throw when check() is called on an expired clearance', () => {
+      let fakeNow = 1_000_000
+      const now = () => fakeNow
+      const clearance = createClearance(
+        { ...baseOptions, permissions: { ...baseOptions.permissions, expiry: 3600 } }, // 1h
+        { now }
+      )
+      fakeNow = 1_000_000 + 7_200_000 // 2h later — expired
+      expect(() =>
+        clearance.check({ action: 'swap', contract: '0xUniswap' })
       ).toThrow('Clearance for agent "0xagent" has expired')
     })
   })

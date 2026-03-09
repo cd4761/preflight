@@ -40,14 +40,16 @@ export class OnChainAsserter {
   }
 
   /**
-   * Assert that a token balance decreased by at least the specified amount.
+   * Assert that a token balance decreased by at least the specified minimum.
+   * Passes if `before - after >= min`.
+   *
    * @param token - Token symbol or address
-   * @param opts.address - The address to check
-   * @param opts.by - Expected decrease amount (bigint)
+   * @param opts.address - The address to check (must exist in both snapshots)
+   * @param opts.min - Minimum expected decrease amount (bigint, inclusive)
    */
   balanceDecreased(
     token: string,
-    opts: { readonly address: string; readonly by: bigint }
+    opts: { readonly address: string; readonly min: bigint }
   ): this {
     if (
       !Object.hasOwn(this.ctx.snapshots.before.balances, opts.address) ||
@@ -63,14 +65,14 @@ export class OnChainAsserter {
     const after = this.ctx.snapshots.after.balances[opts.address]![token] ?? 0n
     const actual = before - after
 
-    if (actual < opts.by) {
+    if (actual < opts.min) {
       if (actual < 0n) {
         throw new Error(
-          `Expected ${token} balance to decrease by ${opts.by}, but balance increased by ${-actual}`
+          `Expected ${token} balance to decrease by at least ${opts.min}, but balance increased by ${-actual}`
         )
       }
       throw new Error(
-        `Expected ${token} balance to decrease by ${opts.by}, but decreased by ${actual}`
+        `Expected ${token} balance to decrease by at least ${opts.min}, but decreased by ${actual}`
       )
     }
 

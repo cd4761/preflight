@@ -41,26 +41,43 @@ export interface Scenario {
  * Like wrapping a test in `beforeEach`/`afterEach` automatically:
  * the fork starts before your callback and stops in `finally`.
  *
+ * Available as `preflight.scenario(...)` or via direct named import.
+ *
  * @param name - Scenario name
  * @param options - ScenarioOptions (fork config)
  * @returns Scenario object with a `run` method
+ *
+ * @example
+ * ```ts
+ * const s = scenario('1 ETH swap on Uniswap', {
+ *   fork: { rpc: 'https://eth.llamarpc.com', blockNumber: 20_000_000n },
+ * })
+ *
+ * await s.run(async (ctx) => {
+ *   // ctx.fork.client is a viem PublicClient connected to the local Anvil fork
+ *   const block = await ctx.fork.client.getBlockNumber()
+ * })
+ * ```
  */
-function scenario(name: string, options: ScenarioOptions): Scenario {
+export function scenario(name: string, options: ScenarioOptions): Scenario {
   return {
     name,
     run: async (fn) => {
       const fork = await createFork(options.fork)
-      let primaryError: unknown
+      // Track whether the callback threw so we can suppress stop errors:
+      // the `finally` block always runs, even after `throw err` in catch.
+      // Without this flag, a fork.stop() failure would replace the original error.
+      let callbackFailed = false
       try {
         await fn({ fork })
       } catch (err) {
-        primaryError = err
+        callbackFailed = true
         throw err
       } finally {
-        // Suppress stop errors when a primary error is already in flight,
-        // so the caller sees the original failure rather than a cleanup error.
+        // Suppress cleanup errors when the callback already threw — the caller
+        // needs to see the original failure, not a teardown side-effect.
         await fork.stop().catch((stopErr) => {
-          if (!primaryError) throw stopErr
+          if (!callbackFailed) throw stopErr
         })
       }
     },
@@ -69,31 +86,7 @@ function scenario(name: string, options: ScenarioOptions): Scenario {
 
 /**
  * The `preflight` namespace — entry point for declaring test scenarios.
- *
- * @example
- * ```ts
- * const s = preflight.scenario('1 ETH swap on Uniswap', {
- *   fork: { rpc: 'https://eth.llamarpc.com', blockNumber: 20_000_000n },
- * })
- *
- * await s.run(async (ctx) => {
- *   // ctx.fork.client is a viem PublicClient connected to the local Anvil fork
- *   const block = await ctx.fork.client.getBlockNumber()
- *
- *   // assertOnChain takes an AssertContext (with snapshots + gasUsed + approvals),
- *   // which you build from on-chain data collected during the scenario run.
- *   // Example:
- *   // assertOnChain({ snapshots: { before, after }, gasUsed: 150_000n, approvals: [] })
- *   //   .balanceDecreased('ETH', { address: '0xUser', by: 1_000_000_000_000_000_000n })
- *   //   .gasUsed({ max: 300_000n })
- * })
- * ```
- */
-/**
- * The `preflight` namespace — entry point for declaring test scenarios.
- * Also available as a named export: `import { scenario } from '@preflight/core'`
+ * Wraps `scenario` for consumers who prefer the namespaced form:
+ * `preflight.scenario('name', options)`.
  */
 export const preflight = { scenario } as const
-
-/** Direct export for consumers who prefer named imports over the namespace. */
-export { scenario }

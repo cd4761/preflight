@@ -16,9 +16,10 @@ export interface Permissions {
   /** List of action names (e.g. 'swap', 'addLiquidity') the agent may execute */
   readonly allowedActions: readonly string[]
   /**
-   * Per-token spend limits (bigint wei amounts).
+   * Per-token spend limits (bigint wei amounts). Token keys are compared
+   * case-insensitively (normalized to uppercase internally).
    * If a token key is present, cumulative spend of that token must not exceed its value.
-   * Tokens not listed in spendLimit are unconstrained.
+   * Tokens not listed in spendLimit are unconstrained but still tracked in `spentAmounts`.
    */
   readonly spendLimit: Readonly<Record<string, bigint>>
   /** How long (in seconds) this clearance is valid after creation */
@@ -44,7 +45,8 @@ export interface AgentCall {
   readonly contract: string
   /**
    * Optional token spend to validate against spendLimit.
-   * If provided and the token has a limit, throws when cumulative amount exceeds it.
+   * Token key is compared case-insensitively.
+   * Amount must be >= 0n.
    */
   readonly spend?: {
     /** Token symbol or address */
@@ -63,6 +65,10 @@ export interface AgentCall {
  * - `check(call)` — pure read-only check; safe for dry-run previews, does NOT accumulate spend.
  * - `validate(call)` — stateful check; accumulates spend toward the budget on success.
  *   Call this only when actually committing an agent action.
+ *
+ * **Concurrency note:** `validate()` is synchronous and JS is single-threaded, but if
+ * callers interleave `await` points between the limit check and subsequent actions,
+ * they should serialize calls to `validate()` themselves to preserve the budget invariant.
  */
 export interface Clearance {
   /** The agent identifier this clearance was issued for */
@@ -70,8 +76,9 @@ export interface Clearance {
   /** The permission scope */
   readonly permissions: Permissions
   /**
-   * Read-only view of cumulative spend per token so far.
-   * Reflects spend accumulated by all prior `validate()` calls.
+   * Read-only view of cumulative spend per token (keys are uppercased).
+   * Reflects all tokens that have been passed to `validate()`, including
+   * tokens without an explicit limit (for audit purposes).
    */
   readonly spentAmounts: Readonly<Record<string, bigint>>
   /**
@@ -103,7 +110,8 @@ export interface Clearance {
  * permissions allow, and the token expires after `expiry` seconds.
  *
  * @param options - ClearanceOptions with agent ID and permissions
- * @param internalOpts - Internal options for testing (e.g. time injection via `now`)
+ * @param internalOpts - Clock injection for testing only. Not for production use.
+ * @internal
  * @returns A Clearance object with `check`, `validate`, and `isExpired` methods
  *
  * @example
@@ -113,14 +121,13 @@ export interface Clearance {
  *   permissions: {
  *     allowedContracts: ['0xUniswapV3Router'],
  *     allowedActions: ['swap'],
- *     spendLimit: { ETH: 1_000_000_000_000_000_000n }, // 1 ETH max cumulative
+ *     spendLimit: { ETH: 1_000_000_000_000_000_000n }, // 1 ETH cumulative max
  *     expiry: 86400, // 24 hours
  *   },
  * })
  *
  * clearance.check({ action: 'swap', contract: '0xUniswapV3Router' })  // pure — no side effect
  * clearance.validate({ action: 'swap', contract: '0xUniswapV3Router' }) // commits spend
- * clearance.validate({ action: 'transfer', contract: '0xUniswap' })     // throws
  * ```
  */
 export function createClearance(
@@ -135,14 +142,22 @@ export function createClearance(
   const actionsSet = new Set(permissions.allowedActions)
   const contractsSet = new Set(permissions.allowedContracts.map((c) => c.toLowerCase()))
 
-  // Cumulative spend per token across all validate() calls.
+  // Normalize spendLimit keys to uppercase for case-insensitive token matching.
+  // e.g. { eth: 1n } and { ETH: 1n } both resolve to the same limit.
+  const normalizedSpendLimit: Record<string, bigint> = {}
+  for (const [token, limit] of Object.entries(permissions.spendLimit)) {
+    normalizedSpendLimit[token.toUpperCase()] = limit
+  }
+
+  // Cumulative spend per token (uppercased keys) across all validate() calls.
+  // Includes all tokens passed to validate(), even those without explicit limits.
   const spentAmounts: Record<string, bigint> = {}
 
   /**
-   * Internal pure check: validates all permission constraints without side effects.
-   * Uses the provided `currentSpent` to project cumulative totals.
+   * Pure validation of all permission constraints, given the current spend state.
+   * Throws on any violation. Has no side effects.
    */
-  function assertPermitted(call: AgentCall, currentSpent: Record<string, bigint>): void {
+  function assertPermitted(call: AgentCall, currentSpent: Readonly<Record<string, bigint>>): void {
     if (now() >= createdAt + permissions.expiry * 1000) {
       throw new Error(`Clearance for agent "${options.agent}" has expired`)
     }
@@ -157,9 +172,10 @@ export function createClearance(
       if (amount < 0n) {
         throw new Error(`Spend amount must be non-negative, got ${amount}`)
       }
-      const limit = permissions.spendLimit[token]
+      const normalizedToken = token.toUpperCase()
+      const limit = normalizedSpendLimit[normalizedToken]
       if (limit !== undefined) {
-        const soFar = currentSpent[token] ?? 0n
+        const soFar = currentSpent[normalizedToken] ?? 0n
         const total = soFar + amount
         if (total > limit) {
           throw new Error(
@@ -184,12 +200,10 @@ export function createClearance(
 
     validate(call: AgentCall): void {
       assertPermitted(call, spentAmounts)
-      // Only accumulate spend after all checks pass.
+      // Accumulate spend for all tokens (not only limited ones) for a complete audit trail.
       if (call.spend !== undefined) {
-        const { token, amount } = call.spend
-        if (permissions.spendLimit[token] !== undefined) {
-          spentAmounts[token] = (spentAmounts[token] ?? 0n) + amount
-        }
+        const normalizedToken = call.spend.token.toUpperCase()
+        spentAmounts[normalizedToken] = (spentAmounts[normalizedToken] ?? 0n) + call.spend.amount
       }
     },
 

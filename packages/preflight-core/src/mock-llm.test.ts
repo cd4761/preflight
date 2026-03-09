@@ -104,6 +104,29 @@ describe('mockLLM', () => {
     )
   })
 
+  it('should throw when content is empty string and no catch-all rule matches', async () => {
+    const mock = mockLLM({
+      responses: [{ prompt: /swap/, reply: 'swap ETH' }],
+    })
+    const openai = createMockOpenAI(mock)
+    await expect(
+      openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [{ role: 'user', content: '' }],
+      })
+    ).rejects.toThrow('No mock response found for: ""')
+  })
+
+  it('should warn: empty string prompt matches all string-pattern rules (catch-all hazard)', () => {
+    // A string rule with '' as pattern will match every prompt via includes('')
+    const mock = mockLLM({
+      responses: [{ prompt: '', reply: 'catch-all' }],
+    })
+    // includes('') is always true — this is documented behavior, not a bug to hide
+    expect(mock.resolve('completely unrelated prompt')).toBe('catch-all')
+    expect(mock.resolve('')).toBe('catch-all')
+  })
+
   it('should match the first matching response when multiple patterns exist', async () => {
     const mock = mockLLM({
       responses: [
