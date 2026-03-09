@@ -99,11 +99,13 @@ describe('createClearance', () => {
 
     it('should throw when cumulative spend across calls exceeds the limit', () => {
       const clearance = createClearance(baseOptions)
-      clearance.validate({
-        action: 'swap',
-        contract: '0xUniswap',
-        spend: { token: 'ETH', amount: 600_000_000_000_000_000n }, // 0.6 ETH — OK
-      })
+      expect(() =>
+        clearance.validate({
+          action: 'swap',
+          contract: '0xUniswap',
+          spend: { token: 'ETH', amount: 600_000_000_000_000_000n }, // 0.6 ETH — OK
+        })
+      ).not.toThrow()
       expect(() =>
         clearance.validate({
           action: 'swap',
@@ -111,6 +113,17 @@ describe('createClearance', () => {
           spend: { token: 'ETH', amount: 600_000_000_000_000_000n }, // 0.6 ETH — cumulative 1.2 ETH
         })
       ).toThrow('Cumulative spend of 1200000000000000000 for "ETH" exceeds limit 1000000000000000000')
+    })
+
+    it('should throw for negative spend amount', () => {
+      const clearance = createClearance(baseOptions)
+      expect(() =>
+        clearance.validate({
+          action: 'swap',
+          contract: '0xUniswap',
+          spend: { token: 'ETH', amount: -1n },
+        })
+      ).toThrow('Spend amount must be non-negative, got -1')
     })
 
     it('should not restrict spend for tokens not in spendLimit', () => {
@@ -175,6 +188,63 @@ describe('createClearance', () => {
       expect(() =>
         clearance.validate({ action: 'swap', contract: '0xUniswap' })
       ).toThrow('Clearance for agent "0xagent" has expired')
+    })
+  })
+
+  describe('check() — pure read-only validation', () => {
+    it('should pass for a valid call without accumulating spend', () => {
+      const clearance = createClearance(baseOptions)
+      expect(() =>
+        clearance.check({
+          action: 'swap',
+          contract: '0xUniswap',
+          spend: { token: 'ETH', amount: 500_000_000_000_000_000n },
+        })
+      ).not.toThrow()
+      // spentAmounts should remain zero — check() is pure
+      expect(clearance.spentAmounts['ETH']).toBeUndefined()
+    })
+
+    it('should throw for disallowed action without side effects', () => {
+      const clearance = createClearance(baseOptions)
+      expect(() =>
+        clearance.check({ action: 'transfer', contract: '0xUniswap' })
+      ).toThrow('Action "transfer" not in allowedActions')
+      expect(clearance.spentAmounts['ETH']).toBeUndefined()
+    })
+
+    it('should throw when spend would exceed limit (without accumulating)', () => {
+      const clearance = createClearance(baseOptions)
+      expect(() =>
+        clearance.check({
+          action: 'swap',
+          contract: '0xUniswap',
+          spend: { token: 'ETH', amount: 2_000_000_000_000_000_000n },
+        })
+      ).toThrow('Cumulative spend of 2000000000000000000 for "ETH" exceeds limit 1000000000000000000')
+      expect(clearance.spentAmounts['ETH']).toBeUndefined()
+    })
+  })
+
+  describe('spentAmounts', () => {
+    it('should reflect cumulative spend after validate() calls', () => {
+      const clearance = createClearance(baseOptions)
+      clearance.validate({
+        action: 'swap',
+        contract: '0xUniswap',
+        spend: { token: 'ETH', amount: 300_000_000_000_000_000n }, // 0.3 ETH
+      })
+      expect(clearance.spentAmounts['ETH']).toBe(300_000_000_000_000_000n)
+    })
+
+    it('should not change after check() calls', () => {
+      const clearance = createClearance(baseOptions)
+      clearance.check({
+        action: 'swap',
+        contract: '0xUniswap',
+        spend: { token: 'ETH', amount: 300_000_000_000_000_000n },
+      })
+      expect(clearance.spentAmounts['ETH']).toBeUndefined()
     })
   })
 

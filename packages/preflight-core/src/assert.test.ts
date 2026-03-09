@@ -54,6 +54,15 @@ describe('assertOnChain', () => {
         })
       ).toThrow('Address "0xunknown" not found in snapshots')
     })
+
+    it('should pass with by: 0n (no-op decrease check)', () => {
+      expect(() =>
+        assertOnChain(mockCtx).balanceDecreased('ETH', {
+          address: '0xabc',
+          by: 0n,
+        })
+      ).not.toThrow()
+    })
   })
 
   describe('balanceIncreased', () => {

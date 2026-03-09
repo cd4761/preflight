@@ -17,7 +17,7 @@ export interface Permissions {
   readonly allowedActions: readonly string[]
   /**
    * Per-token spend limits (bigint wei amounts).
-   * If a token key is present, spend of that token must not exceed its value.
+   * If a token key is present, cumulative spend of that token must not exceed its value.
    * Tokens not listed in spendLimit are unconstrained.
    */
   readonly spendLimit: Readonly<Record<string, bigint>>
@@ -44,12 +44,12 @@ export interface AgentCall {
   readonly contract: string
   /**
    * Optional token spend to validate against spendLimit.
-   * If provided and the token has a limit, throws when amount exceeds it.
+   * If provided and the token has a limit, throws when cumulative amount exceeds it.
    */
   readonly spend?: {
     /** Token symbol or address */
     readonly token: string
-    /** Amount in wei (bigint) */
+    /** Amount in wei (bigint). Must be >= 0n. */
     readonly amount: bigint
   }
 }
@@ -57,7 +57,12 @@ export interface AgentCall {
 /**
  * A live clearance object with permission enforcement and expiry checking.
  *
- * Created by `createClearance`. Use `validate()` before every agent action.
+ * Created by `createClearance`.
+ *
+ * **Two methods for permission checking:**
+ * - `check(call)` — pure read-only check; safe for dry-run previews, does NOT accumulate spend.
+ * - `validate(call)` — stateful check; accumulates spend toward the budget on success.
+ *   Call this only when actually committing an agent action.
  */
 export interface Clearance {
   /** The agent identifier this clearance was issued for */
@@ -65,17 +70,28 @@ export interface Clearance {
   /** The permission scope */
   readonly permissions: Permissions
   /**
-   * Validate that a proposed agent call is permitted.
-   * Checks in order: action → contract → spend limit.
+   * Read-only view of cumulative spend per token so far.
+   * Reflects spend accumulated by all prior `validate()` calls.
+   */
+  readonly spentAmounts: Readonly<Record<string, bigint>>
+  /**
+   * Pure permission check — same logic as `validate()` but does NOT accumulate spend.
+   * Safe for dry-run / UI preview use cases.
    *
-   * @param call - The action + contract (+ optional spend) the agent wants to execute
-   * @throws Error if the action or contract is not allowed, or spend exceeds limit
+   * @throws Error if expired, action/contract not allowed, or spend would exceed limit
+   */
+  check(call: AgentCall): void
+  /**
+   * Stateful permission check — verifies the call is allowed AND accumulates spend.
+   * Call this when actually committing an agent action (not for previews).
+   *
+   * @throws Error if expired, action/contract not allowed, or cumulative spend exceeds limit
    */
   validate(call: AgentCall): void
   /**
    * Check whether this clearance has expired.
    *
-   * @returns `true` if the current time is past `createdAt + expiry * 1000ms`
+   * @returns `true` if `now >= createdAt + expiry * 1000ms`
    */
   isExpired(): boolean
 }
@@ -87,8 +103,8 @@ export interface Clearance {
  * permissions allow, and the token expires after `expiry` seconds.
  *
  * @param options - ClearanceOptions with agent ID and permissions
- * @param opts - Internal options for testing (e.g. time injection via `now`)
- * @returns A Clearance object with `validate` and `isExpired` methods
+ * @param internalOpts - Internal options for testing (e.g. time injection via `now`)
+ * @returns A Clearance object with `check`, `validate`, and `isExpired` methods
  *
  * @example
  * ```ts
@@ -97,18 +113,14 @@ export interface Clearance {
  *   permissions: {
  *     allowedContracts: ['0xUniswapV3Router'],
  *     allowedActions: ['swap'],
- *     spendLimit: { ETH: 1_000_000_000_000_000_000n }, // 1 ETH max
+ *     spendLimit: { ETH: 1_000_000_000_000_000_000n }, // 1 ETH max cumulative
  *     expiry: 86400, // 24 hours
  *   },
  * })
  *
- * clearance.validate({ action: 'swap', contract: '0xUniswapV3Router' }) // OK
+ * clearance.check({ action: 'swap', contract: '0xUniswapV3Router' })  // pure — no side effect
+ * clearance.validate({ action: 'swap', contract: '0xUniswapV3Router' }) // commits spend
  * clearance.validate({ action: 'transfer', contract: '0xUniswap' })     // throws
- * clearance.validate({
- *   action: 'swap',
- *   contract: '0xUniswapV3Router',
- *   spend: { token: 'ETH', amount: 2_000_000_000_000_000_000n }, // throws — exceeds 1 ETH
- * })
  * ```
  */
 export function createClearance(
@@ -123,35 +135,60 @@ export function createClearance(
   const actionsSet = new Set(permissions.allowedActions)
   const contractsSet = new Set(permissions.allowedContracts.map((c) => c.toLowerCase()))
 
-  // Track cumulative spend per token across all validate() calls.
+  // Cumulative spend per token across all validate() calls.
   const spentAmounts: Record<string, bigint> = {}
+
+  /**
+   * Internal pure check: validates all permission constraints without side effects.
+   * Uses the provided `currentSpent` to project cumulative totals.
+   */
+  function assertPermitted(call: AgentCall, currentSpent: Record<string, bigint>): void {
+    if (now() >= createdAt + permissions.expiry * 1000) {
+      throw new Error(`Clearance for agent "${options.agent}" has expired`)
+    }
+    if (!actionsSet.has(call.action)) {
+      throw new Error(`Action "${call.action}" not in allowedActions`)
+    }
+    if (!contractsSet.has(call.contract.toLowerCase())) {
+      throw new Error(`Contract "${call.contract}" not in allowedContracts`)
+    }
+    if (call.spend !== undefined) {
+      const { token, amount } = call.spend
+      if (amount < 0n) {
+        throw new Error(`Spend amount must be non-negative, got ${amount}`)
+      }
+      const limit = permissions.spendLimit[token]
+      if (limit !== undefined) {
+        const soFar = currentSpent[token] ?? 0n
+        const total = soFar + amount
+        if (total > limit) {
+          throw new Error(
+            `Cumulative spend of ${total} for "${token}" exceeds limit ${limit}`
+          )
+        }
+      }
+    }
+  }
 
   return {
     agent: options.agent,
     permissions,
 
+    get spentAmounts(): Readonly<Record<string, bigint>> {
+      return spentAmounts
+    },
+
+    check(call: AgentCall): void {
+      assertPermitted(call, spentAmounts)
+    },
+
     validate(call: AgentCall): void {
-      if (now() >= createdAt + permissions.expiry * 1000) {
-        throw new Error(`Clearance for agent "${options.agent}" has expired`)
-      }
-      if (!actionsSet.has(call.action)) {
-        throw new Error(`Action "${call.action}" not in allowedActions`)
-      }
-      if (!contractsSet.has(call.contract.toLowerCase())) {
-        throw new Error(`Contract "${call.contract}" not in allowedContracts`)
-      }
+      assertPermitted(call, spentAmounts)
+      // Only accumulate spend after all checks pass.
       if (call.spend !== undefined) {
         const { token, amount } = call.spend
-        const limit = permissions.spendLimit[token]
-        if (limit !== undefined) {
-          const soFar = spentAmounts[token] ?? 0n
-          const total = soFar + amount
-          if (total > limit) {
-            throw new Error(
-              `Cumulative spend of ${total} for "${token}" exceeds limit ${limit}`
-            )
-          }
-          spentAmounts[token] = total
+        if (permissions.spendLimit[token] !== undefined) {
+          spentAmounts[token] = (spentAmounts[token] ?? 0n) + amount
         }
       }
     },

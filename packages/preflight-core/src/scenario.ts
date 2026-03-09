@@ -50,10 +50,18 @@ function scenario(name: string, options: ScenarioOptions): Scenario {
     name,
     run: async (fn) => {
       const fork = await createFork(options.fork)
+      let primaryError: unknown
       try {
         await fn({ fork })
+      } catch (err) {
+        primaryError = err
+        throw err
       } finally {
-        await fork.stop()
+        // Suppress stop errors when a primary error is already in flight,
+        // so the caller sees the original failure rather than a cleanup error.
+        await fork.stop().catch((stopErr) => {
+          if (!primaryError) throw stopErr
+        })
       }
     },
   }
@@ -81,4 +89,11 @@ function scenario(name: string, options: ScenarioOptions): Scenario {
  * })
  * ```
  */
+/**
+ * The `preflight` namespace — entry point for declaring test scenarios.
+ * Also available as a named export: `import { scenario } from '@preflight/core'`
+ */
 export const preflight = { scenario } as const
+
+/** Direct export for consumers who prefer named imports over the namespace. */
+export { scenario }

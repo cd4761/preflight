@@ -50,16 +50,17 @@ export class OnChainAsserter {
     opts: { readonly address: string; readonly by: bigint }
   ): this {
     if (
-      !(opts.address in this.ctx.snapshots.before.balances) ||
-      !(opts.address in this.ctx.snapshots.after.balances)
+      !Object.hasOwn(this.ctx.snapshots.before.balances, opts.address) ||
+      !Object.hasOwn(this.ctx.snapshots.after.balances, opts.address)
     ) {
       throw new Error(`Address "${opts.address}" not found in snapshots`)
     }
 
-    const before =
-      this.ctx.snapshots.before.balances[opts.address]?.[token] ?? 0n
-    const after =
-      this.ctx.snapshots.after.balances[opts.address]?.[token] ?? 0n
+    // Non-null assertion is safe: Object.hasOwn verified presence above.
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const before = this.ctx.snapshots.before.balances[opts.address]![token] ?? 0n
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const after = this.ctx.snapshots.after.balances[opts.address]![token] ?? 0n
     const actual = before - after
 
     if (actual < opts.by) {
@@ -87,16 +88,17 @@ export class OnChainAsserter {
     opts: { readonly address: string; readonly min: bigint }
   ): this {
     if (
-      !(opts.address in this.ctx.snapshots.before.balances) ||
-      !(opts.address in this.ctx.snapshots.after.balances)
+      !Object.hasOwn(this.ctx.snapshots.before.balances, opts.address) ||
+      !Object.hasOwn(this.ctx.snapshots.after.balances, opts.address)
     ) {
       throw new Error(`Address "${opts.address}" not found in snapshots`)
     }
 
-    const before =
-      this.ctx.snapshots.before.balances[opts.address]?.[token] ?? 0n
-    const after =
-      this.ctx.snapshots.after.balances[opts.address]?.[token] ?? 0n
+    // Non-null assertion is safe: Object.hasOwn verified presence above.
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const before = this.ctx.snapshots.before.balances[opts.address]![token] ?? 0n
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const after = this.ctx.snapshots.after.balances[opts.address]![token] ?? 0n
     const actual = after - before
 
     if (actual < opts.min) {

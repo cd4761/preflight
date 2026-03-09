@@ -9,7 +9,7 @@ export { createFork } from './fork'
 export type { Fork, ForkOptions } from './fork'
 
 // Scenario API
-export { preflight } from './scenario'
+export { preflight, scenario } from './scenario'
 export type { Scenario, ScenarioContext, ScenarioOptions } from './scenario'
 
 // On-chain assertions

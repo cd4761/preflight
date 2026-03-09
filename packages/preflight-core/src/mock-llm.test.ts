@@ -83,6 +83,27 @@ describe('mockLLM', () => {
     ).rejects.toThrow('createMockOpenAI: messages array must not be empty')
   })
 
+  it('should resolve prompt directly via mockLLM.resolve() — regex match', () => {
+    const mock = mockLLM({
+      responses: [{ prompt: /swap/, reply: 'swap ETH' }],
+    })
+    expect(mock.resolve('please swap my tokens')).toBe('swap ETH')
+  })
+
+  it('should resolve prompt directly via mockLLM.resolve() — string includes match', () => {
+    const mock = mockLLM({
+      responses: [{ prompt: 'transfer', reply: 'transfer ETH' }],
+    })
+    expect(mock.resolve('please transfer ETH to 0xabc')).toBe('transfer ETH')
+  })
+
+  it('should throw from resolve() when no pattern matches', () => {
+    const mock = mockLLM({ responses: [{ prompt: /swap/, reply: 'swap ETH' }] })
+    expect(() => mock.resolve('do something else')).toThrow(
+      'No mock response found for: "do something else"'
+    )
+  })
+
   it('should match the first matching response when multiple patterns exist', async () => {
     const mock = mockLLM({
       responses: [
