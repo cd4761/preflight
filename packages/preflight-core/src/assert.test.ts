@@ -37,13 +37,13 @@ describe('assertOnChain', () => {
       ).toThrow('Expected ETH balance to decrease by 5000')
     })
 
-    it('should handle missing token in before snapshot', () => {
+    it('should treat unknown token as zero balance and fail if expected decrease exceeds 0', () => {
       expect(() =>
         assertOnChain(mockCtx).balanceDecreased('DAI', {
           address: '0xabc',
           by: 1n,
         })
-      ).toThrow('Expected DAI balance to decrease by 1')
+      ).toThrow('Expected DAI balance to decrease by 1, but decreased by 0')
     })
 
     it('should handle missing address in snapshots', () => {
@@ -72,7 +72,26 @@ describe('assertOnChain', () => {
           address: '0xabc',
           min: 5_000n,
         })
-      ).toThrow('Expected USDC balance to increase by at least 5000')
+      ).toThrow('Expected USDC balance to increase by at least 5000, but increased by 2000')
+    })
+
+    it('should report "balance decreased" when balance went down instead of up', () => {
+      // ETH decreased in mockCtx (10_000n → 8_000n), so balanceIncreased('ETH') should clarify this
+      expect(() =>
+        assertOnChain(mockCtx).balanceIncreased('ETH', {
+          address: '0xabc',
+          min: 1_000n,
+        })
+      ).toThrow('Expected ETH balance to increase by at least 1000, but balance decreased by 2000')
+    })
+
+    it('should throw for missing address', () => {
+      expect(() =>
+        assertOnChain(mockCtx).balanceIncreased('ETH', {
+          address: '0xunknown',
+          min: 1n,
+        })
+      ).toThrow('Address "0xunknown" not found in snapshots')
     })
 
     it('should pass when increase exceeds min', () => {

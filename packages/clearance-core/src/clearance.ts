@@ -87,7 +87,7 @@ export interface Clearance {
  * permissions allow, and the token expires after `expiry` seconds.
  *
  * @param options - ClearanceOptions with agent ID and permissions
- * @param internal - Internal options for testing (e.g. time injection)
+ * @param opts - Internal options for testing (e.g. time injection via `now`)
  * @returns A Clearance object with `validate` and `isExpired` methods
  *
  * @example
@@ -123,11 +123,17 @@ export function createClearance(
   const actionsSet = new Set(permissions.allowedActions)
   const contractsSet = new Set(permissions.allowedContracts.map((c) => c.toLowerCase()))
 
+  // Track cumulative spend per token across all validate() calls.
+  const spentAmounts: Record<string, bigint> = {}
+
   return {
     agent: options.agent,
     permissions,
 
     validate(call: AgentCall): void {
+      if (now() >= createdAt + permissions.expiry * 1000) {
+        throw new Error(`Clearance for agent "${options.agent}" has expired`)
+      }
       if (!actionsSet.has(call.action)) {
         throw new Error(`Action "${call.action}" not in allowedActions`)
       }
@@ -135,17 +141,23 @@ export function createClearance(
         throw new Error(`Contract "${call.contract}" not in allowedContracts`)
       }
       if (call.spend !== undefined) {
-        const limit = permissions.spendLimit[call.spend.token]
-        if (limit !== undefined && call.spend.amount > limit) {
-          throw new Error(
-            `Spend of ${call.spend.amount} for "${call.spend.token}" exceeds limit ${limit}`
-          )
+        const { token, amount } = call.spend
+        const limit = permissions.spendLimit[token]
+        if (limit !== undefined) {
+          const soFar = spentAmounts[token] ?? 0n
+          const total = soFar + amount
+          if (total > limit) {
+            throw new Error(
+              `Cumulative spend of ${total} for "${token}" exceeds limit ${limit}`
+            )
+          }
+          spentAmounts[token] = total
         }
       }
     },
 
     isExpired(): boolean {
-      return now() > createdAt + permissions.expiry * 1000
+      return now() >= createdAt + permissions.expiry * 1000
     },
   }
 }

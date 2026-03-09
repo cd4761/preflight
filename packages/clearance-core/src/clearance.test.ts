@@ -94,7 +94,23 @@ describe('createClearance', () => {
           contract: '0xUniswap',
           spend: { token: 'ETH', amount: 2_000_000_000_000_000_000n }, // 2 ETH
         })
-      ).toThrow('Spend of 2000000000000000000 for "ETH" exceeds limit 1000000000000000000')
+      ).toThrow('Cumulative spend of 2000000000000000000 for "ETH" exceeds limit 1000000000000000000')
+    })
+
+    it('should throw when cumulative spend across calls exceeds the limit', () => {
+      const clearance = createClearance(baseOptions)
+      clearance.validate({
+        action: 'swap',
+        contract: '0xUniswap',
+        spend: { token: 'ETH', amount: 600_000_000_000_000_000n }, // 0.6 ETH — OK
+      })
+      expect(() =>
+        clearance.validate({
+          action: 'swap',
+          contract: '0xUniswap',
+          spend: { token: 'ETH', amount: 600_000_000_000_000_000n }, // 0.6 ETH — cumulative 1.2 ETH
+        })
+      ).toThrow('Cumulative spend of 1200000000000000000 for "ETH" exceeds limit 1000000000000000000')
     })
 
     it('should not restrict spend for tokens not in spendLimit', () => {
@@ -116,36 +132,49 @@ describe('createClearance', () => {
     })
 
     it('should be expired when expiry is 0 seconds', () => {
-      let tick = 0
-      const now = () => { tick++; return tick }
+      let fakeNow = 1_000_000
+      const now = () => fakeNow
       const clearance = createClearance(
         { ...baseOptions, permissions: { ...baseOptions.permissions, expiry: 0 } },
         { now }
       )
-      // createdAt = 1, now() = 2 on second call, 2 > 1 + 0 = true
+      // createdAt = 1_000_000, expiry = 0 → expires at >= 1_000_000
       expect(clearance.isExpired()).toBe(true)
     })
 
     it('should not be expired when within expiry window', () => {
-      const start = 1_000_000
-      let calls = 0
-      const now = () => { calls++; return calls === 1 ? start : start + 3600_000 } // 1 hour later
+      let fakeNow = 1_000_000
+      const now = () => fakeNow
       const clearance = createClearance(
         { ...baseOptions, permissions: { ...baseOptions.permissions, expiry: 7200 } }, // 2h window
         { now }
       )
+      fakeNow = 1_000_000 + 3_600_000 // 1h later
       expect(clearance.isExpired()).toBe(false) // 1h elapsed, 2h window — not expired
     })
 
     it('should be expired after expiry window passes', () => {
-      const start = 1_000_000
-      let calls = 0
-      const now = () => { calls++; return calls === 1 ? start : start + 90_000_000 } // 25 hours later
+      let fakeNow = 1_000_000
+      const now = () => fakeNow
       const clearance = createClearance(
         { ...baseOptions, permissions: { ...baseOptions.permissions, expiry: 86400 } }, // 24h window
         { now }
       )
+      fakeNow = 1_000_000 + 90_000_000 // 25h later
       expect(clearance.isExpired()).toBe(true)
+    })
+
+    it('should throw when validate() is called on an expired clearance', () => {
+      let fakeNow = 1_000_000
+      const now = () => fakeNow
+      const clearance = createClearance(
+        { ...baseOptions, permissions: { ...baseOptions.permissions, expiry: 3600 } }, // 1h
+        { now }
+      )
+      fakeNow = 1_000_000 + 7_200_000 // 2h later — expired
+      expect(() =>
+        clearance.validate({ action: 'swap', contract: '0xUniswap' })
+      ).toThrow('Clearance for agent "0xagent" has expired')
     })
   })
 

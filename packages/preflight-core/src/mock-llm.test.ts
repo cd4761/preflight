@@ -42,6 +42,23 @@ describe('mockLLM', () => {
     expect(result.choices[0].message.content).toBe('approve USDC')
   })
 
+  it('should not match patterns in earlier messages — only the last message is tested', async () => {
+    const mock = mockLLM({
+      responses: [{ prompt: /swap/, reply: 'swap reply' }],
+    })
+    const openai = createMockOpenAI(mock)
+    // "swap" appears only in the first message, not the last
+    await expect(
+      openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'user', content: 'swap my tokens' },
+          { role: 'user', content: 'actually, never mind' },
+        ],
+      })
+    ).rejects.toThrow('No mock response found for: "actually, never mind"')
+  })
+
   it('should throw for unmatched prompt with the prompt content in the error', async () => {
     const mock = mockLLM({ responses: [] })
     const openai = createMockOpenAI(mock)
