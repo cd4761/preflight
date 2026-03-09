@@ -4,17 +4,20 @@ import type { ScenarioContext } from './scenario'
 import { createPublicClient, http } from 'viem'
 import { mainnet } from 'viem/chains'
 
+/** Use FORK_RPC_URL env var, or fall back to a public endpoint. */
+const FORK_RPC = process.env.FORK_RPC_URL ?? 'https://eth.drpc.org'
+
 describe('preflight.scenario', () => {
   it('should create a scenario with the given name', () => {
     const scenario = preflight.scenario('test scenario', {
-      fork: { rpc: 'https://rpc.mevblocker.io' },
+      fork: { rpc: FORK_RPC },
     })
     expect(scenario.name).toBe('test scenario')
   })
 
   it('should run a scenario callback and receive fork context', async () => {
     const scenario = preflight.scenario('run test', {
-      fork: { rpc: 'https://rpc.mevblocker.io' },
+      fork: { rpc: FORK_RPC },
     })
 
     let capturedCtx: ScenarioContext | null = null
@@ -30,7 +33,7 @@ describe('preflight.scenario', () => {
 
   it('should stop the fork after run completes (Anvil no longer responds)', async () => {
     const scenario = preflight.scenario('cleanup test', {
-      fork: { rpc: 'https://rpc.mevblocker.io' },
+      fork: { rpc: FORK_RPC },
     })
 
     let anvilRpcUrl: string | null = null
@@ -54,7 +57,7 @@ describe('preflight.scenario', () => {
 
   it('should stop the fork even if the callback throws', async () => {
     const scenario = preflight.scenario('error test', {
-      fork: { rpc: 'https://rpc.mevblocker.io' },
+      fork: { rpc: FORK_RPC },
     })
 
     await expect(
@@ -62,5 +65,5 @@ describe('preflight.scenario', () => {
         throw new Error('intentional test error')
       })
     ).rejects.toThrow('intentional test error')
-  }, 30_000)
+  }, 60_000)
 })
