@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { parseArgs } from 'node:util'
+import { runPreflight } from './cli'
 
 const { values, positionals } = parseArgs({
   args: process.argv.slice(2),
@@ -13,9 +14,15 @@ const { values, positionals } = parseArgs({
 const [command, ...files] = positionals
 
 if (command === 'test') {
-  console.log(`Running preflight tests on: ${files.join(', ')}`)
-  console.log(`Fork: ${values.fork ?? 'none'}, Live: ${values.live ?? 'none'}`)
-  // TODO: run vitest programmatically
+  runPreflight(files, { fork: values.fork, live: values.live })
+    .then((result) => {
+      process.exit(result.exitCode)
+    })
+    .catch((err: Error) => {
+      console.error(err.message)
+      process.exit(1)
+    })
 } else {
-  console.log('Usage: preflight test <files> [--fork <rpc>] [--live <network>]')
+  console.log('Usage: preflight test <files...> [--fork <rpc>] [--live <network>]')
+  process.exit(0)
 }

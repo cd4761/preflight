@@ -1,0 +1,19 @@
+{
+  "name": "@preflight/example-uniswap-swap-agent",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "test": "vitest run",
+    "preflight": "preflight test src/agent.test.ts"
+  },
+  "dependencies": {
+    "@preflight/core": "workspace:*",
+    "@clearance/core": "workspace:*",
+    "@preflight/adapter-langchain": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0",
+    "vitest": "^4.0.18",
+    "tsup": "^8.0.0"
+  }
+}

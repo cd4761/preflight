@@ -5,12 +5,23 @@
   "scripts": {
     "build": "turbo build",
     "test": "turbo test",
-    "lint": "turbo lint"
+    "lint": "turbo lint",
+    "docs": "typedoc",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "release": "pnpm build && changeset publish"
+  },
+  "pnpm": {
+    "overrides": {
+      "signal-exit": "^4.1.0"
+    }
   },
   "devDependencies": {
+    "tsup": "^8.0.0",
     "turbo": "^2.0.0",
+    "typedoc": "^0.27.0",
+    "typedoc-plugin-markdown": "^4.0.0",
     "typescript": "^5.4.0",
-    "vitest": "^1.6.0",
-    "tsup": "^8.0.0"
+    "vitest": "^4.0.18"
   }
 }

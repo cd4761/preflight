@@ -1,0 +1,19 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPointStrategy": "packages",
+  "entryPoints": [
+    "packages/preflight-core",
+    "packages/clearance-core",
+    "packages/adapter-langchain",
+    "packages/adapter-openai-agents",
+    "packages/preflight-cli"
+  ],
+  "out": "docs",
+  "plugin": ["typedoc-plugin-markdown"],
+  "readme": "README.md",
+  "name": "Preflight Monorepo",
+  "includeVersion": true,
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "skipErrorChecking": true
+}

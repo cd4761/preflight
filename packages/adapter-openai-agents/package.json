@@ -1,13 +1,13 @@
 {
-  "name": "@clearance/core",
+  "name": "@preflight/adapter-openai-agents",
   "version": "0.1.0",
-  "description": "EIP-7702 based agent permission scoping",
+  "description": "OpenAI Agents SDK adapter for preflight — mock agent runner backed by mockLLM",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/preflight-sh/preflight"
   },
-  "keywords": ["ai-agent", "permissions", "eip-7702", "clearance", "evm", "blockchain"],
+  "keywords": ["ai-agent", "testing", "openai", "agents", "mock", "preflight"],
   "engines": {
     "node": ">=22.0.0"
   },
@@ -28,9 +28,16 @@
     "build": "tsup src/index.ts --format cjs,esm --dts",
     "test": "vitest run"
   },
+  "peerDependencies": {
+    "openai": ">=4.0.0"
+  },
   "devDependencies": {
-    "tsup": "^8.0.0",
+    "openai": "^4.0.0",
     "typescript": "^5.4.0",
-    "vitest": "^4.0.18"
+    "vitest": "^4.0.0",
+    "tsup": "^8.0.0"
+  },
+  "dependencies": {
+    "@preflight/core": "workspace:*"
   }
 }
