@@ -1,13 +1,19 @@
 {
   "name": "@preflight/adapter-langchain",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "LangChain adapter for preflight — mock chat model backed by mockLLM",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/preflight-sh/preflight"
   },
-  "keywords": ["ai-agent", "testing", "langchain", "mock", "preflight"],
+  "keywords": [
+    "ai-agent",
+    "testing",
+    "langchain",
+    "mock",
+    "preflight"
+  ],
   "engines": {
     "node": ">=22.0.0"
   },
@@ -23,7 +29,10 @@
       "require": "./dist/index.js"
     }
   },
-  "files": ["dist", "src"],
+  "files": [
+    "dist",
+    "src"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
     "test": "vitest run"

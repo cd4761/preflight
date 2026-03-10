@@ -1,13 +1,21 @@
 {
   "name": "@preflight/core",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "AI agent behavioral testing framework for EVM",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/preflight-sh/preflight"
   },
-  "keywords": ["ai-agent", "testing", "evm", "blockchain", "anvil", "mock-llm", "preflight"],
+  "keywords": [
+    "ai-agent",
+    "testing",
+    "evm",
+    "blockchain",
+    "anvil",
+    "mock-llm",
+    "preflight"
+  ],
   "engines": {
     "node": ">=22.0.0"
   },
@@ -23,7 +31,10 @@
       "require": "./dist/index.js"
     }
   },
-  "files": ["dist", "src"],
+  "files": [
+    "dist",
+    "src"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
     "test": "vitest run",

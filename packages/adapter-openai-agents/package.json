@@ -1,13 +1,20 @@
 {
   "name": "@preflight/adapter-openai-agents",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "OpenAI Agents SDK adapter for preflight — mock agent runner backed by mockLLM",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/preflight-sh/preflight"
   },
-  "keywords": ["ai-agent", "testing", "openai", "agents", "mock", "preflight"],
+  "keywords": [
+    "ai-agent",
+    "testing",
+    "openai",
+    "agents",
+    "mock",
+    "preflight"
+  ],
   "engines": {
     "node": ">=22.0.0"
   },
@@ -23,7 +30,10 @@
       "require": "./dist/index.js"
     }
   },
-  "files": ["dist", "src"],
+  "files": [
+    "dist",
+    "src"
+  ],
   "scripts": {
     "build": "tsup src/index.ts --format cjs,esm --dts",
     "test": "vitest run"
