@@ -63,18 +63,22 @@ async function signAuthHandler(params: z.infer<typeof signAuthSchema>) {
 }
 
 async function verifyAuthHandler(params: z.infer<typeof verifyAuthSchema>) {
-  const auth = {
-    address:   params.address as `0x${string}`,
-    nonce:     BigInt(params.nonce),
-    chainId:   BigInt(params.chainId),
-    signature: params.signature as `0x${string}`,
+  try {
+    const auth = {
+      address:   params.address as `0x${string}`,
+      nonce:     BigInt(params.nonce),
+      chainId:   BigInt(params.chainId),
+      signature: params.signature as `0x${string}`,
+    }
+    const valid = await verifyAuthorization(
+      auth,
+      params.contract as `0x${string}`,
+      params.expectedAddress ? { address: params.expectedAddress as `0x${string}` } : undefined,
+    )
+    return toolSuccess({ valid })
+  } catch (err) {
+    return toolError(err instanceof Error ? err.message : String(err))
   }
-  const valid = await verifyAuthorization(
-    auth,
-    params.contract as `0x${string}`,
-    params.expectedAddress ? { address: params.expectedAddress as `0x${string}` } : undefined,
-  )
-  return toolSuccess({ valid })
 }
 
 export const signAuthorizationTool = {

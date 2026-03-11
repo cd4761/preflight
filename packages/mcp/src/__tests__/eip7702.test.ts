@@ -100,4 +100,15 @@ describe('verify_authorization tool', () => {
     const data = JSON.parse(result.content[0].text)
     expect(data.valid).toBe(false)
   })
+
+  it('should return error for malformed nonce (non-integer string)', async () => {
+    const result = await verifyAuthorizationTool.handler({
+      address:   TEST_ADDRESS,
+      nonce:     'not-a-number',
+      chainId:   '1',
+      signature: '0x' + 'ab'.repeat(65),
+      contract:  TEST_CONTRACT,
+    })
+    expect(result.isError).toBe(true)
+  })
 })
