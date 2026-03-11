@@ -18,7 +18,7 @@ export interface MockTokamakRunResult {
  * mimicking the core agent execution pattern of the Tokamak AI Layer SDK.
  */
 export interface MockTokamakAgentClient {
-  run(input: string): Promise<MockTokamakRunResult>
+  readonly run: (input: string) => Promise<MockTokamakRunResult>
 }
 
 /**

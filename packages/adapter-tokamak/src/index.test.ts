@@ -62,4 +62,12 @@ describe('createTokamakAgentMock', () => {
       expect(result.output).toBe('stake TON on Tokamak L2')
     })
   })
+
+  describe('with empty responses', () => {
+    it('should throw when mock has no responses', async () => {
+      const mock = makeMock([])
+      const agent = createTokamakAgentMock(mock)
+      await expect(agent.run('anything')).rejects.toThrow()
+    })
+  })
 })
