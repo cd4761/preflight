@@ -30,3 +30,17 @@ export type {
   ChatCompletionParams,
   ChatCompletionResponse,
 } from './mock-llm'
+
+// EVMbench integration
+export {
+  parseEvmbenchFindings,
+  createPermissionsFromEvmbench,
+} from './evmbench'
+export type {
+  EvmbenchSeverity,
+  EvmbenchFinding,
+  EvmbenchReport,
+  EvmbenchFilterOptions,
+  EvmbenchSummary,
+  EvmbenchPermissions,
+} from './evmbench'
