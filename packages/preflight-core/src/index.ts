@@ -16,6 +16,10 @@ export type { Scenario, ScenarioContext, ScenarioOptions } from './scenario'
 export { assertOnChain, OnChainAsserter } from './assert'
 export type { AssertContext, OnChainSnapshot } from './assert'
 
+// Live testnet fork
+export { createLiveFork } from './live-fork'
+export type { LiveFork, LiveForkOptions } from './live-fork'
+
 // LLM mocking
 export { mockLLM, createMockOpenAI } from './mock-llm'
 export type {
