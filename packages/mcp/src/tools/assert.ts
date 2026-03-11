@@ -7,12 +7,14 @@ const HEX_ADDRESS = /^0x[0-9a-fA-F]{40}$/
 const HEX_VALUE   = /^0x[0-9a-fA-F]+$/
 const INT_STRING  = /^\d+$/
 
-const assertionSchema = z.discriminatedUnion('type', [
+const assertionSchema = z.union([
   z.object({
     type:    z.literal('balance'),
     address: z.string().regex(HEX_ADDRESS, 'Invalid address'),
     gte:     z.string().regex(INT_STRING, 'gte must be integer string in wei').optional(),
     eq:      z.string().regex(INT_STRING, 'eq must be integer string in wei').optional(),
+  }).refine(d => d.gte !== undefined || d.eq !== undefined, {
+    message: 'balance assertion requires at least one of: gte, eq',
   }),
   z.object({
     type:    z.literal('hasCode'),
@@ -26,7 +28,7 @@ const assertionSchema = z.discriminatedUnion('type', [
   }),
 ])
 
-const assertOnChainSchema = z.object({
+export const assertOnChainSchema = z.object({
   sessionId:  z.string().min(1, 'sessionId is required'),
   assertions: z.array(assertionSchema).min(1, 'at least one assertion required'),
 })

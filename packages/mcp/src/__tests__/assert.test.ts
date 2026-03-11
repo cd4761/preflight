@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { assertOnChainTool } from '../tools/assert.js'
+import { assertOnChainTool, assertOnChainSchema } from '../tools/assert.js'
 import { addSession, removeSession, setCachedClient } from '../state.js'
 
 const SESSION_ID = 'test-assert-session'
@@ -11,6 +11,9 @@ const mockClient = {
 }
 
 beforeEach(() => {
+  mockClient.getBalance.mockResolvedValue(1_000_000_000_000_000_000n)
+  mockClient.getCode.mockResolvedValue('0x6080604052')
+  mockClient.getStorageAt.mockResolvedValue('0x0000000000000000000000000000000000000000000000000000000000000001')
   addSession({
     id: SESSION_ID,
     rpcUrl: 'http://127.0.0.1:54321',
@@ -134,5 +137,46 @@ describe('assert_on_chain tool', () => {
     })
     const data = JSON.parse(result.content[0].text)
     expect(data.results[0].passed).toBe(false)
+  })
+
+  it('should reject balance assertion with neither gte nor eq', () => {
+    const result = assertOnChainSchema.safeParse({
+      sessionId: SESSION_ID,
+      assertions: [{ type: 'balance', address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' }],
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('should return passed: false when any assertion in a batch fails', async () => {
+    mockClient.getCode.mockResolvedValueOnce('0x') // no code
+    const result = await assertOnChainTool.handler({
+      sessionId: SESSION_ID,
+      assertions: [
+        { type: 'balance', address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', gte: '1000000000000000000' }, // passes
+        { type: 'hasCode', address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' }, // fails (no code)
+      ],
+    })
+    const data = JSON.parse(result.content[0].text)
+    expect(data.passed).toBe(false)
+    expect(data.results).toHaveLength(2)
+    expect(data.results[0].passed).toBe(true)
+    expect(data.results[1].passed).toBe(false)
+  })
+
+  it('should handle storageSlot when getStorageAt returns undefined', async () => {
+    mockClient.getStorageAt.mockResolvedValueOnce(undefined)
+    const result = await assertOnChainTool.handler({
+      sessionId: SESSION_ID,
+      assertions: [
+        {
+          type: 'storageSlot',
+          address: '0x1234567890abcdef1234567890abcdef12345678',
+          slot: '0x0',
+          eq: '0x0000000000000000000000000000000000000000000000000000000000000001',
+        },
+      ],
+    })
+    const data = JSON.parse(result.content[0].text)
+    expect(data.results[0].passed).toBe(false) // '0x0' !== expected
   })
 })
