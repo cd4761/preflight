@@ -120,11 +120,18 @@ describe('createPermissionsFromEvmbench', () => {
   })
 
   it('should match regardless of address casing (checksum addresses)', () => {
-    // VULN_HIGH is lowercase; provide it as uppercase in allContracts
-    const upperVulnHigh = VULN_HIGH.replace('0x', '0x').toUpperCase().replace('0X', '0x')
-    const result = createPermissionsFromEvmbench([upperVulnHigh, SAFE_CONTRACT], mockReport)
+    // Use an address with a-f hex letters so toUpperCase() actually changes the casing
+    const VULN_WITH_ALPHA = '0xabcdef1234567890abcdef1234567890abcdef12'
+    const checksumAddr    = '0xAbCdEf1234567890AbCdEf1234567890AbCdEf12'
+    const report = {
+      ...mockReport,
+      findings: [
+        { address: VULN_WITH_ALPHA, severity: 'HIGH' as const, category: 'reentrancy', description: 'test' },
+      ],
+    }
+    const result = createPermissionsFromEvmbench([checksumAddr, SAFE_CONTRACT], report)
     expect(result.allowedContracts).toContain(SAFE_CONTRACT)
-    expect(result.allowedContracts).not.toContain(upperVulnHigh)
+    expect(result.allowedContracts).not.toContain(checksumAddr)
   })
 
   it('should return readonly allowedContracts array', () => {

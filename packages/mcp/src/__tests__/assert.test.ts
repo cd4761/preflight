@@ -140,13 +140,15 @@ describe('assert_on_chain tool', () => {
   })
 
   it('should return passed: true when balance eq assertion matches exactly', async () => {
+    // mock default is 1 ETH = 1_000_000_000_000_000_000n (set in beforeEach)
+    const ONE_ETH_WEI = '1000000000000000000'
     const result = await assertOnChainTool.handler({
       sessionId: SESSION_ID,
       assertions: [
         {
           type: 'balance',
           address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-          eq: '1000000000000000000',
+          eq: ONE_ETH_WEI,
         },
       ],
     })
@@ -156,13 +158,15 @@ describe('assert_on_chain tool', () => {
   })
 
   it('should return passed: false when balance eq assertion does not match', async () => {
+    // mock returns 1 ETH; eq expects 2 ETH → should fail
+    const TWO_ETH_WEI = '2000000000000000000'
     const result = await assertOnChainTool.handler({
       sessionId: SESSION_ID,
       assertions: [
         {
           type: 'balance',
           address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-          eq: '2000000000000000000',
+          eq: TWO_ETH_WEI,
         },
       ],
     })

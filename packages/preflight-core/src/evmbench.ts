@@ -59,6 +59,7 @@ export function parseEvmbenchFindings(
 ): EvmbenchSummary {
   const minSeverity = options.minSeverity ?? 'LOW'
   const minIndex = SEVERITY_ORDER.indexOf(minSeverity)
+  if (minIndex === -1) throw new Error(`Unknown minSeverity: ${minSeverity}`)
 
   const seen = new Set<string>()
   for (const finding of report.findings) {
