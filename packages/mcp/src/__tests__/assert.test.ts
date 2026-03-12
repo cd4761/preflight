@@ -139,6 +139,38 @@ describe('assert_on_chain tool', () => {
     expect(data.results[0].passed).toBe(false)
   })
 
+  it('should return passed: true when balance eq assertion matches exactly', async () => {
+    const result = await assertOnChainTool.handler({
+      sessionId: SESSION_ID,
+      assertions: [
+        {
+          type: 'balance',
+          address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+          eq: '1000000000000000000',
+        },
+      ],
+    })
+    const data = JSON.parse(result.content[0].text)
+    expect(data.passed).toBe(true)
+    expect(data.results[0].passed).toBe(true)
+  })
+
+  it('should return passed: false when balance eq assertion does not match', async () => {
+    const result = await assertOnChainTool.handler({
+      sessionId: SESSION_ID,
+      assertions: [
+        {
+          type: 'balance',
+          address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+          eq: '2000000000000000000',
+        },
+      ],
+    })
+    const data = JSON.parse(result.content[0].text)
+    expect(data.passed).toBe(false)
+    expect(data.results[0].reason).toMatch(/balance/)
+  })
+
   it('should reject balance assertion with neither gte nor eq', () => {
     const result = assertOnChainSchema.safeParse({
       sessionId: SESSION_ID,

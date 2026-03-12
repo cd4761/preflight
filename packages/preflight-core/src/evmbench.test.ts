@@ -55,6 +55,28 @@ describe('parseEvmbenchFindings', () => {
     expect(result.chainId).toBe(11155111)
   })
 
+  it('should include CRITICAL severity findings', () => {
+    const criticalReport = {
+      ...mockReport,
+      findings: [
+        { address: VULN_HIGH, severity: 'CRITICAL' as const, category: 'critical', description: 'Critical vuln' },
+      ],
+    }
+    const result = parseEvmbenchFindings(criticalReport, { minSeverity: 'CRITICAL' })
+    expect(result.vulnerableAddresses).toHaveLength(1)
+    expect(result.vulnerableAddresses).toContain(VULN_HIGH)
+  })
+
+  it('should throw for unknown severity values', () => {
+    const badReport = {
+      ...mockReport,
+      findings: [
+        { address: VULN_HIGH, severity: 'HIGHT' as unknown as 'HIGH', category: 'oops', description: 'Typo' },
+      ],
+    }
+    expect(() => parseEvmbenchFindings(badReport)).toThrow('Unknown severity: HIGHT')
+  })
+
   it('should deduplicate addresses with multiple findings', () => {
     const report = {
       ...mockReport,
@@ -95,6 +117,14 @@ describe('createPermissionsFromEvmbench', () => {
     expect(result.allowedContracts).toContain(SAFE_CONTRACT)
     expect(result.allowedContracts).toContain(VULN_MEDIUM)
     expect(result.allowedContracts).not.toContain(VULN_HIGH)
+  })
+
+  it('should match regardless of address casing (checksum addresses)', () => {
+    // VULN_HIGH is lowercase; provide it as uppercase in allContracts
+    const upperVulnHigh = VULN_HIGH.replace('0x', '0x').toUpperCase().replace('0X', '0x')
+    const result = createPermissionsFromEvmbench([upperVulnHigh, SAFE_CONTRACT], mockReport)
+    expect(result.allowedContracts).toContain(SAFE_CONTRACT)
+    expect(result.allowedContracts).not.toContain(upperVulnHigh)
   })
 
   it('should return readonly allowedContracts array', () => {

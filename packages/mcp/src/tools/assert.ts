@@ -70,12 +70,13 @@ async function runAssertion(
         ...(!passed ? { reason: `balance ${actual} < required ${threshold}` } : {}),
       }
     }
-    return { type: 'balance', passed: true, actual: actual.toString() }
+    // Unreachable: schema .refine() guarantees gte or eq is present
+    throw new Error('invariant: balance assertion must have gte or eq')
   }
 
   if (assertion.type === 'hasCode') {
     const code = await client.getCode({ address: addr })
-    const passed = code !== undefined && code !== '0x' && code.length > 2
+    const passed = code !== undefined && code !== '0x'
     return {
       type: 'hasCode',
       passed,

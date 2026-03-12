@@ -62,9 +62,9 @@ export function parseEvmbenchFindings(
 
   const seen = new Set<string>()
   for (const finding of report.findings) {
-    if (SEVERITY_ORDER.indexOf(finding.severity) >= minIndex) {
-      seen.add(finding.address.toLowerCase())
-    }
+    const idx = SEVERITY_ORDER.indexOf(finding.severity)
+    if (idx === -1) throw new Error(`Unknown severity: ${finding.severity}`)
+    if (idx >= minIndex) seen.add(finding.address.toLowerCase())
   }
 
   return {

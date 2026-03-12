@@ -48,12 +48,21 @@ describe.skipIf(skip)('createLiveFork — Sepolia E2E', () => {
 })
 
 describe.skipIf(skip)('createLiveFork — rpcUrl 직접 제공', () => {
+  let dispose: (() => Promise<void>) | undefined
+
+  afterEach(async () => {
+    if (dispose) {
+      await dispose()
+      dispose = undefined
+    }
+  })
+
   it('should accept rpcUrl directly instead of env var', async () => {
     const fork = await createLiveFork({
       network: 'sepolia',
       rpcUrl: SEPOLIA_RPC!,
     })
+    dispose = fork.dispose
     expect(fork.network).toBe('sepolia')
-    await fork.dispose()
   }, 60_000)
 })

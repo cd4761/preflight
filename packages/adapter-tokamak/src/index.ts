@@ -35,7 +35,7 @@ export interface MockTokamakAgentClient {
  */
 export function createTokamakAgentMock(mock: LLMMock): MockTokamakAgentClient {
   return {
-    async run(input: string): Promise<MockTokamakRunResult> {
+    run: async (input: string): Promise<MockTokamakRunResult> => {
       const output = mock.resolve(input)
       return { output }
     },
