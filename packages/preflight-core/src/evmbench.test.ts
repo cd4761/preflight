@@ -67,6 +67,14 @@ describe('parseEvmbenchFindings', () => {
     expect(result.vulnerableAddresses).toContain(VULN_HIGH)
   })
 
+  it('should throw for unknown minSeverity values', () => {
+    expect(() =>
+      parseEvmbenchFindings(mockReport, {
+        minSeverity: 'INFORMATIONAL' as unknown as 'HIGH',
+      })
+    ).toThrow('Unknown minSeverity: INFORMATIONAL')
+  })
+
   it('should throw for unknown severity values', () => {
     const badReport = {
       ...mockReport,
