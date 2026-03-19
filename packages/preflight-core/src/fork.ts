@@ -6,9 +6,11 @@ import { createAnvil } from '@viem/anvil'
  * Options for creating an Anvil fork environment.
  */
 export interface ForkOptions {
-  /** RPC URL of the chain to fork */
-  readonly rpc: string
-  /** Block number to fork at (defaults to latest) */
+  /** RPC URL of the chain to fork. Required unless standalone is true. */
+  readonly rpc?: string
+  /** Run Anvil as a standalone local chain without forking. Default: false. */
+  readonly standalone?: boolean
+  /** Block number to fork at (ignored in standalone mode) */
   readonly blockNumber?: bigint
   /** Local Anvil port (defaults to auto-assignment via randomPort) */
   readonly port?: number
@@ -64,13 +66,20 @@ function isPortConflict(err: unknown): boolean {
  * @throws If Anvil fails to start (RPC unreachable, port conflict after retries, timeout)
  */
 export async function createFork(options: ForkOptions): Promise<Fork> {
+  const rpc = options.standalone
+    ? undefined
+    : options.rpc?.trim() || undefined
+
+  if (!options.standalone && !rpc) {
+    throw new Error('createFork: rpc is required unless standalone is true')
+  }
+
   const maxAttempts = options.port === undefined ? 3 : 1
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     const port = options.port ?? randomPort()
     const anvil = createAnvil({
-      forkUrl: options.rpc,
-      forkBlockNumber: options.blockNumber,
+      ...(rpc ? { forkUrl: rpc, forkBlockNumber: options.blockNumber } : {}),
       port,
       startTimeout: 30_000,
     })

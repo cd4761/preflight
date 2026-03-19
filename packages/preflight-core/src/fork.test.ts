@@ -28,3 +28,37 @@ describe('createFork', () => {
     expect(blockNumber).toBe(20_000_000n)
   }, 60_000)
 })
+
+describe('createFork — standalone mode', () => {
+  let fork: Awaited<ReturnType<typeof createFork>>
+
+  afterEach(async () => {
+    await fork?.stop()
+  }, 10_000)
+
+  it('should start Anvil without forking when standalone is true', async () => {
+    fork = await createFork({ standalone: true })
+    expect(fork.rpcUrl).toMatch(/^http:\/\//)
+    expect(fork.stop).toBeTypeOf('function')
+  }, 30_000)
+
+  it('should have test account with 10000 ETH balance', async () => {
+    fork = await createFork({ standalone: true })
+    const balance = await fork.client.getBalance({
+      address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+    })
+    expect(balance).toBe(10_000_000_000_000_000_000_000n)
+  }, 30_000)
+
+  it('should throw when standalone is false and rpc is missing', async () => {
+    await expect(
+      createFork({ standalone: false })
+    ).rejects.toThrow(/rpc is required/)
+  })
+
+  it('should throw when standalone is false and rpc is empty string', async () => {
+    await expect(
+      createFork({ standalone: false, rpc: '' })
+    ).rejects.toThrow(/rpc is required/)
+  })
+})

@@ -42,6 +42,7 @@
     "dev": "vitest"
   },
   "dependencies": {
+    "@clearance/core": "workspace:^",
     "@viem/anvil": "^0.0.9",
     "viem": "^2.0.0"
   },
