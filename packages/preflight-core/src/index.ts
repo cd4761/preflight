@@ -44,3 +44,14 @@ export type {
   EvmbenchSummary,
   EvmbenchPermissions,
 } from './evmbench'
+
+// Protocol address registry
+export {
+  getProtocolAddresses,
+  getSupportedProtocols,
+  getSupportedChainIds,
+} from './protocols'
+export type {
+  Protocol,
+  ProtocolContract,
+} from './protocols'
