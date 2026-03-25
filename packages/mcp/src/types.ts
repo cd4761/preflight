@@ -24,3 +24,12 @@ export interface ClearancePolicy {
   readonly expiresAt?: number
   spentAmounts: Map<string, bigint>
 }
+
+/** A single entry in the audit trail. */
+export interface AuditEntry {
+  readonly timestamp: string
+  readonly tool: string
+  readonly sessionId?: string
+  readonly result: 'success' | 'error'
+  readonly detail?: string
+}

@@ -1,4 +1,4 @@
-import type { ForkSession, ClearancePolicy } from './types.js'
+import type { ForkSession, ClearancePolicy, AuditEntry } from './types.js'
 
 const MAX_SESSIONS = parseInt(process.env.PREFLIGHT_MAX_SESSIONS ?? '5', 10)
 const sessions = new Map<string, ForkSession>()
@@ -47,4 +47,25 @@ export function setPolicy(p: ClearancePolicy): void {
 
 export function clearPolicy(): void {
   policy = null
+}
+
+const auditLog: AuditEntry[] = []
+const MAX_AUDIT_ENTRIES = 1000
+
+export function addAuditEntry(entry: AuditEntry): void {
+  auditLog.push(entry)
+  if (auditLog.length > MAX_AUDIT_ENTRIES) {
+    auditLog.splice(0, auditLog.length - MAX_AUDIT_ENTRIES)
+  }
+}
+
+export function getAuditLog(sessionId?: string): readonly AuditEntry[] {
+  if (sessionId) {
+    return auditLog.filter(e => e.sessionId === sessionId)
+  }
+  return [...auditLog]
+}
+
+export function clearAuditLog(): void {
+  auditLog.length = 0
 }

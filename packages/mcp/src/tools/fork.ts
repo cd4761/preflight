@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { randomUUID } from 'crypto'
 import { createFork } from '@preflight/core'
 import { addSession, getSession, removeSession } from '../state.js'
-import { toolError, toolSuccess, withTimeout } from '../tool-helpers.js'
+import { toolError, toolSuccess, withTimeout, audit } from '../tool-helpers.js'
 import type { ForkSession } from '../types.js'
 
 const FORK_TIMEOUT_MS = 30_000
@@ -58,7 +58,10 @@ async function createForkHandler(params: z.infer<typeof createForkSchema>) {
 
   const blockNumber = params.blockNumber !== undefined ? BigInt(params.blockNumber) : undefined
   const fork = await launchFork(forkUrl, blockNumber)
-  if ('error' in fork) return toolError(fork.error)
+  if ('error' in fork) {
+    audit('create_fork', 'error', fork.error)
+    return toolError(fork.error)
+  }
 
   const session: ForkSession = {
     id: randomUUID(),
@@ -77,6 +80,7 @@ async function createForkHandler(params: z.infer<typeof createForkSchema>) {
     return toolError(err instanceof Error ? err.message : String(err))
   }
 
+  audit('create_fork', 'success', `chainId=${session.chainId}`, session.id)
   return toolSuccess({
     sessionId: session.id,
     rpcUrl: session.rpcUrl,
@@ -120,6 +124,7 @@ async function resetForkHandler(params: z.infer<typeof resetForkSchema>) {
 
   addSession(session)
 
+  audit('reset_fork', 'success', `prev=${params.sessionId}`, session.id)
   return toolSuccess({
     sessionId: session.id,
     rpcUrl: session.rpcUrl,

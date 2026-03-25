@@ -9,6 +9,7 @@ vi.mock('@preflight/core', () => ({
   createFork: vi.fn(() =>
     Promise.resolve({
       rpcUrl: 'http://127.0.0.1:8545',
+      chainId: 1,
       client: {
         getBlockNumber: mockGetBlockNumber,
         getChainId: mockGetChainId,
@@ -30,6 +31,9 @@ vi.mock('../state.js', () => ({
   getCachedClient: vi.fn(() => undefined),
   setCachedClient: vi.fn(),
   clearCachedClient: vi.fn(),
+  addAuditEntry: vi.fn(),
+  getAuditLog: vi.fn(() => []),
+  clearAuditLog: vi.fn(),
 }))
 
 vi.mock('../tool-helpers.js', async (importOriginal) => {
