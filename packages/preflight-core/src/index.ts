@@ -55,3 +55,15 @@ export type {
   Protocol,
   ProtocolContract,
 } from './protocols'
+
+// Token price oracle
+export {
+  createStaticPriceProvider,
+  weiToUsd,
+  usdToWei,
+  checkUsdSpendLimit,
+} from './price-oracle'
+export type {
+  TokenPrice,
+  PriceProvider,
+} from './price-oracle'
