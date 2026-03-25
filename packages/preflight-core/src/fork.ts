@@ -1,5 +1,6 @@
-import { createPublicClient, http, type PublicClient } from 'viem'
-import { mainnet, foundry } from 'viem/chains'
+import { createPublicClient, http, defineChain, type Chain, type PublicClient } from 'viem'
+import { foundry } from 'viem/chains'
+import * as viemChains from 'viem/chains'
 import { createAnvil } from '@viem/anvil'
 
 /** Standalone mode — Anvil runs as a local chain (chainId 31337) without forking. */
@@ -33,6 +34,8 @@ export interface Fork {
   readonly client: PublicClient
   /** Local Anvil HTTP URL */
   readonly rpcUrl: string
+  /** Detected chain ID (auto-detected from Anvil RPC in fork mode, 31337 in standalone) */
+  readonly chainId: number
   /** Stops the Anvil process */
   readonly stop: () => Promise<void>
 }
@@ -59,21 +62,41 @@ function isPortConflict(err: unknown): boolean {
 }
 
 /**
+ * Lookup a viem built-in chain definition by chainId.
+ * Cast to Chain[] because viem/chains exports a complex union type
+ * that confuses type predicates.
+ */
+function getKnownChain(chainId: number): Chain | undefined {
+  const allChains = Object.values(viemChains) as Chain[]
+  return allChains.find(c => c.id === chainId)
+}
+
+/**
  * Creates a local Anvil environment.
  *
  * Like spinning up a local copy of Ethereum — you get a full blockchain
  * environment to test against without touching the real network.
  *
  * Two modes:
- * - Fork mode (`{ rpc: '...' }`) — forks a remote chain at an optional block
+ * - Fork mode (`{ rpc: '...' }`) — forks a remote chain at an optional block.
+ *   The chain is auto-detected via `eth_chainId` RPC call.
  * - Standalone mode (`{ standalone: true }`) — empty local chain (chainId 31337)
  *
  * When no explicit port is provided, up to 3 port-conflict retries are attempted
  * with fresh random ports before giving up.
  *
  * @param options - Anvil configuration (see ForkOptions)
- * @returns A Fork object with a connected PublicClient and a stop function
+ * @returns A Fork object with a connected PublicClient, chainId, and a stop function
  * @throws If Anvil fails to start, or if rpc is missing/empty in fork mode
+ *
+ * @example
+ * // Fork mode — auto-detects chain
+ * const fork = await createFork({ rpc: 'https://eth.drpc.org' })
+ * console.log(fork.chainId) // 1 (mainnet)
+ *
+ * // Standalone mode
+ * const fork = await createFork({ standalone: true })
+ * console.log(fork.chainId) // 31337 (foundry)
  */
 export async function createFork(options: ForkOptions): Promise<Fork> {
   // Narrow mode and extract fork-specific options via discriminant
@@ -107,14 +130,25 @@ export async function createFork(options: ForkOptions): Promise<Fork> {
     }
 
     const rpcUrl = `http://${anvil.host}:${anvil.port}`
-    const client = createPublicClient({
-      chain: rpc ? mainnet : foundry,
-      transport: http(rpcUrl),
+
+    // Auto-detect chainId: standalone uses 31337, fork mode queries Anvil
+    const detectedChainId = options.standalone
+      ? 31337
+      : await createPublicClient({ transport: http(rpcUrl) }).getChainId()
+
+    const chain = getKnownChain(detectedChainId) ?? defineChain({
+      id: detectedChainId,
+      name: `Chain ${detectedChainId}`,
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: { default: { http: [rpcUrl] } },
     })
+
+    const client = createPublicClient({ chain, transport: http(rpcUrl) })
 
     return {
       client,
       rpcUrl,
+      chainId: detectedChainId,
       stop: () => anvil.stop(),
     }
   }

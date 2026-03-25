@@ -35,6 +35,8 @@ describe('E2E: Fork standalone basics', () => {
     const blockNumber = await fork.client.getBlockNumber()
     expect(blockNumber).toBeGreaterThanOrEqual(0n)
     expect(fork.rpcUrl).toMatch(/^http:\/\//)
+    expect(fork.chainId).toBe(31337)
+    expect(fork.client.chain.id).toBe(fork.chainId)
   }, 30_000)
 
   it('should have test accounts with default ETH balance', async () => {

@@ -40,21 +40,16 @@ async function launchFork(
   }
 
   let resolvedBlockNumber: bigint
-  let chainId: number
   try {
-    ;[resolvedBlockNumber, chainId] = await withTimeout(
-      Promise.all([
-        blockNumber !== undefined ? Promise.resolve(blockNumber) : fork.client.getBlockNumber(),
-        fork.client.getChainId(),
-      ]),
-      FORK_TIMEOUT_MS,
-    )
+    resolvedBlockNumber = blockNumber !== undefined
+      ? blockNumber
+      : await withTimeout(fork.client.getBlockNumber(), FORK_TIMEOUT_MS)
   } catch (err) {
     await fork.stop().catch(() => undefined)
     return { error: `Failed to query fork state: ${err instanceof Error ? err.message : String(err)}` }
   }
 
-  return { rpcUrl: fork.rpcUrl, blockNumber: resolvedBlockNumber, chainId, stop: fork.stop }
+  return { rpcUrl: fork.rpcUrl, blockNumber: resolvedBlockNumber, chainId: fork.chainId, stop: fork.stop }
 }
 
 async function createForkHandler(params: z.infer<typeof createForkSchema>) {
@@ -118,7 +113,7 @@ async function resetForkHandler(params: z.infer<typeof resetForkSchema>) {
     rpcUrl: fork.rpcUrl,
     forkUrl: existing.forkUrl,
     blockNumber: existing.blockNumber,
-    chainId: existing.chainId,
+    chainId: fork.chainId,
     createdAt: new Date(),
     stop: fork.stop,
   }

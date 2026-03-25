@@ -24,6 +24,12 @@ describe('createFork', () => {
     expect(fork.stop).toBeTypeOf('function')
   }, 60_000)
 
+  it('should auto-detect chainId from forked RPC', async () => {
+    fork = await createFork({ rpc: FORK_RPC })
+    expect(fork.chainId).toBe(1) // eth.drpc.org is mainnet
+    expect(fork.client.chain.id).toBe(fork.chainId)
+  }, 60_000)
+
   it('should fork at a specific block number', async () => {
     fork = await createFork({
       rpc: FORK_RPC,
@@ -54,10 +60,10 @@ describe('createFork — standalone mode', () => {
     expect(balance).toBe(TEN_THOUSAND_ETH)
   }, 30_000)
 
-  it('should use foundry chain (chainId 31337) in standalone mode', async () => {
+  it('should return chainId 31337 in standalone mode', async () => {
     fork = await createFork({ standalone: true })
-    const chainId = await fork.client.getChainId()
-    expect(chainId).toBe(31337)
+    expect(fork.chainId).toBe(31337)
+    expect(fork.client.chain.id).toBe(31337)
   }, 30_000)
 
   it('should throw when rpc is empty string in fork mode', async () => {
