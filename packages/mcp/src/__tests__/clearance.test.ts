@@ -6,6 +6,7 @@ let mockPolicy: ClearancePolicy | null = null
 vi.mock('../state.js', () => ({
   getPolicy: vi.fn(() => mockPolicy),
   setPolicy: vi.fn((p: ClearancePolicy) => { mockPolicy = p }),
+  clearPolicy: vi.fn(() => { mockPolicy = null }),
   getSession: vi.fn(),
   addSession: vi.fn(),
   removeSession: vi.fn(),
@@ -13,9 +14,12 @@ vi.mock('../state.js', () => ({
   getCachedClient: vi.fn(() => undefined),
   setCachedClient: vi.fn(),
   clearCachedClient: vi.fn(),
+  addAuditEntry: vi.fn(),
+  getAuditLog: vi.fn(() => []),
+  clearAuditLog: vi.fn(),
 }))
 
-import { checkClearanceTool } from '../tools/clearance.js'
+import { checkClearanceTool, setPolicyTool, getPolicyTool, deletePolicyTool } from '../tools/clearance.js'
 import { setPolicy } from '../state.js'
 
 describe('check_clearance', () => {
@@ -206,5 +210,77 @@ describe('check_clearance', () => {
 
   it('validates Zod schema rejects missing token', () => {
     expect(checkClearanceTool.schema.safeParse({ amount: '1000' }).success).toBe(false)
+  })
+})
+
+describe('set_policy', () => {
+  beforeEach(() => { mockPolicy = null })
+
+  it('should create a new policy', async () => {
+    const result = await setPolicyTool.handler({
+      maxAmount: '5000000000000000000',
+      token: 'native',
+    })
+    const data = parseToolResult(result)
+    expect(data.set).toBe(true)
+    expect(data.token).toBe('native')
+    expect(data.maxAmount).toBe('5000000000000000000')
+  })
+
+  it('should set policy with recipient and expiry', async () => {
+    const result = await setPolicyTool.handler({
+      maxAmount: '1000000',
+      token: '0xUSDC',
+      recipient: '0x1234567890abcdef1234567890abcdef12345678',
+      expiresAt: 1735689600,
+    })
+    const data = parseToolResult(result)
+    expect(data.recipient).toBe('0x1234567890abcdef1234567890abcdef12345678')
+    expect(data.expiresAt).toBe(1735689600)
+  })
+})
+
+describe('get_policy', () => {
+  beforeEach(() => { mockPolicy = null })
+
+  it('should return exists: false when no policy', async () => {
+    const result = await getPolicyTool.handler({})
+    const data = parseToolResult(result)
+    expect(data.exists).toBe(false)
+  })
+
+  it('should return policy details when set', async () => {
+    mockPolicy = {
+      maxAmount: 5000000000000000000n,
+      token: 'native',
+      spentAmounts: new Map([['NATIVE', 1000000000000000000n]]),
+    }
+    const result = await getPolicyTool.handler({})
+    const data = parseToolResult(result)
+    expect(data.exists).toBe(true)
+    expect(data.token).toBe('native')
+    expect(data.spentAmounts.NATIVE).toBe('1000000000000000000')
+    expect(data.remaining).toBe('4000000000000000000')
+  })
+})
+
+describe('delete_policy', () => {
+  beforeEach(() => { mockPolicy = null })
+
+  it('should return deleted: false when no policy exists', async () => {
+    const result = await deletePolicyTool.handler({})
+    const data = parseToolResult(result)
+    expect(data.deleted).toBe(false)
+  })
+
+  it('should delete existing policy', async () => {
+    mockPolicy = {
+      maxAmount: 5000000000000000000n,
+      token: 'native',
+      spentAmounts: new Map(),
+    }
+    const result = await deletePolicyTool.handler({})
+    const data = parseToolResult(result)
+    expect(data.deleted).toBe(true)
   })
 })

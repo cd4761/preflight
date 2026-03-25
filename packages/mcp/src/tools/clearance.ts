@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { getPolicy, setPolicy } from '../state.js'
-import { toolSuccess } from '../tool-helpers.js'
+import { getPolicy, setPolicy, clearPolicy } from '../state.js'
+import { toolSuccess, toolError } from '../tool-helpers.js'
 import type { ClearancePolicy } from '../types.js'
 
 const INTEGER_STRING = /^\d+$/
@@ -119,4 +119,88 @@ export const checkClearanceTool = {
   description: 'Check whether a proposed spend is within the clearance policy limits',
   schema: clearanceSchema,
   handler: clearanceHandler,
+}
+
+// --- CRUD tools ---
+
+const setPolicySchema = z.object({
+  maxAmount: z
+    .string()
+    .regex(INTEGER_STRING, 'maxAmount must be a non-negative integer string (wei)')
+    .describe('Maximum spend in wei'),
+  token: z.string().describe('Token identifier: "native" or ERC20 address'),
+  recipient: z.string().optional().describe('Optional recipient whitelist address'),
+  expiresAt: z.number().optional().describe('Expiry as Unix timestamp (seconds)'),
+})
+
+async function setPolicyHandler(params: z.infer<typeof setPolicySchema>) {
+  const policy: ClearancePolicy = {
+    maxAmount: BigInt(params.maxAmount),
+    token: params.token,
+    recipient: params.recipient,
+    expiresAt: params.expiresAt,
+    spentAmounts: new Map<string, bigint>(),
+  }
+  setPolicy(policy)
+
+  return toolSuccess({
+    set: true,
+    token: policy.token,
+    maxAmount: policy.maxAmount.toString(),
+    recipient: policy.recipient ?? null,
+    expiresAt: policy.expiresAt ?? null,
+  })
+}
+
+const getPolicySchema = z.object({})
+
+async function getPolicyHandler(_params: z.infer<typeof getPolicySchema>) {
+  const policy = getPolicy()
+  if (!policy) {
+    return toolSuccess({ exists: false })
+  }
+
+  const spentEntries: Record<string, string> = {}
+  for (const [k, v] of policy.spentAmounts) {
+    spentEntries[k] = v.toString()
+  }
+
+  return toolSuccess({
+    exists: true,
+    token: policy.token,
+    maxAmount: policy.maxAmount.toString(),
+    recipient: policy.recipient ?? null,
+    expiresAt: policy.expiresAt ?? null,
+    spentAmounts: spentEntries,
+    remaining: (policy.maxAmount - (policy.spentAmounts.get(policy.token.toUpperCase()) ?? 0n)).toString(),
+  })
+}
+
+const deletePolicySchema = z.object({})
+
+async function deletePolicyHandler(_params: z.infer<typeof deletePolicySchema>) {
+  const existed = getPolicy() !== null
+  clearPolicy()
+  return toolSuccess({ deleted: existed })
+}
+
+export const setPolicyTool = {
+  name: 'set_policy' as const,
+  description: 'Create or replace the clearance policy with fresh spend tracking',
+  schema: setPolicySchema,
+  handler: setPolicyHandler,
+}
+
+export const getPolicyTool = {
+  name: 'get_policy' as const,
+  description: 'Get the current clearance policy including spend amounts and remaining budget',
+  schema: getPolicySchema,
+  handler: getPolicyHandler,
+}
+
+export const deletePolicyTool = {
+  name: 'delete_policy' as const,
+  description: 'Delete the current clearance policy',
+  schema: deletePolicySchema,
+  handler: deletePolicyHandler,
 }

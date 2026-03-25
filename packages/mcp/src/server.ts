@@ -5,7 +5,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { createForkTool, resetForkTool } from './tools/fork.js'
 import { simulateTransactionTool } from './tools/simulate.js'
-import { checkClearanceTool } from './tools/clearance.js'
+import { checkClearanceTool, setPolicyTool, getPolicyTool, deletePolicyTool } from './tools/clearance.js'
 import { signAuthorizationTool, verifyAuthorizationTool } from './tools/eip7702.js'
 import { assertOnChainTool } from './tools/assert.js'
 import { getAuditTrailTool, clearAuditTrailTool } from './tools/audit.js'
@@ -23,6 +23,9 @@ export function createServer(): McpServer {
   server.tool(signAuthorizationTool.name, signAuthorizationTool.schema.shape, signAuthorizationTool.handler)
   server.tool(verifyAuthorizationTool.name, verifyAuthorizationTool.schema.shape, verifyAuthorizationTool.handler)
   server.tool(assertOnChainTool.name, assertOnChainTool.schema.shape, assertOnChainTool.handler)
+  server.tool(setPolicyTool.name, setPolicyTool.schema.shape, setPolicyTool.handler)
+  server.tool(getPolicyTool.name, getPolicyTool.schema.shape, getPolicyTool.handler)
+  server.tool(deletePolicyTool.name, deletePolicyTool.schema.shape, deletePolicyTool.handler)
   server.tool(getAuditTrailTool.name, getAuditTrailTool.schema.shape, getAuditTrailTool.handler)
   server.tool(clearAuditTrailTool.name, clearAuditTrailTool.schema.shape, clearAuditTrailTool.handler)
 
