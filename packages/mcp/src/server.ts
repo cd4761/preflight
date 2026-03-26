@@ -70,12 +70,13 @@ export async function startServer(options?: ServerOptions): Promise<void> {
     })
 
     httpServer.on('error', (err) => {
-      process.stderr.write(`Failed to start HTTP server on port ${options.httpPort}: ${err.message}\n`)
-      process.exit(1)
+      throw new Error(`Failed to start HTTP server on port ${options.httpPort}: ${err.message}`)
     })
 
-    httpServer.listen(options.httpPort, () => {
-      process.stderr.write(`Preflight MCP server listening on http://localhost:${options.httpPort}/mcp\n`)
+    // Security: bind to localhost only — external access requires an explicit reverse proxy
+    httpServer.listen(options.httpPort, '127.0.0.1', () => {
+      process.stderr.write(`Preflight MCP server listening on http://127.0.0.1:${options.httpPort}/mcp\n`)
+      process.stderr.write('Security: bound to localhost only. Use a reverse proxy with auth for remote access.\n')
     })
 
     await server.connect(transport)

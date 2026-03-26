@@ -8,8 +8,37 @@ import type { ForkSession } from '../types.js'
 const FORK_TIMEOUT_MS = 30_000
 const INTEGER_STRING = /^\d+$/
 
+/**
+ * Block internal/cloud metadata IPs to prevent SSRF.
+ * Rejects: loopback, RFC1918 private, link-local, AWS/GCP metadata.
+ */
+const BLOCKED_HOST_PATTERNS = [
+  /^localhost$/i,
+  /^127\./,
+  /^10\./,
+  /^172\.(1[6-9]|2\d|3[01])\./,
+  /^192\.168\./,
+  /^169\.254\./,          // link-local + AWS metadata
+  /^metadata\.google/i,   // GCP metadata
+  /^\[::1\]/,             // IPv6 loopback
+]
+
+function isBlockedUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    return BLOCKED_HOST_PATTERNS.some(p => p.test(parsed.hostname))
+  } catch {
+    return true // malformed URL → block
+  }
+}
+
 const createForkSchema = z.object({
-  forkUrl: z.string().url('Invalid RPC URL').optional(),
+  forkUrl: z
+    .string()
+    .url('Invalid RPC URL')
+    .refine(url => /^https?:\/\//i.test(url), 'Only http:// and https:// schemes are allowed')
+    .refine(url => !isBlockedUrl(url), 'Internal/private network URLs are blocked (SSRF protection)')
+    .optional(),
   blockNumber: z
     .string()
     .regex(INTEGER_STRING, 'blockNumber must be a non-negative integer string')

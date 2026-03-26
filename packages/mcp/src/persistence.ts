@@ -7,6 +7,7 @@
  */
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { z } from 'zod'
 import type { AuditEntry } from './types.js'
 
 /** Serializable subset of ForkSession (excludes stop function and client). */
@@ -25,6 +26,27 @@ interface PersistenceData {
   readonly auditLog: readonly AuditEntry[]
   readonly savedAt: string
 }
+
+/** Runtime schema to validate loaded state — prevents deserialization attacks. */
+const persistenceSchema = z.object({
+  sessions: z.array(z.object({
+    id: z.string(),
+    rpcUrl: z.string(),
+    forkUrl: z.string(),
+    blockNumber: z.string(),
+    chainId: z.number(),
+    createdAt: z.string(),
+    stale: z.boolean(),
+  })),
+  auditLog: z.array(z.object({
+    timestamp: z.string(),
+    tool: z.string(),
+    sessionId: z.string().optional(),
+    result: z.enum(['success', 'error']),
+    detail: z.string().optional(),
+  })),
+  savedAt: z.string(),
+})
 
 const DEFAULT_DIR = join(process.cwd(), '.preflight')
 const DATA_FILE = 'state.json'
@@ -60,7 +82,7 @@ export function saveState(
     savedAt: new Date().toISOString(),
   }
 
-  writeFileSync(getDataPath(targetDir), JSON.stringify(data, null, 2), 'utf-8')
+  writeFileSync(getDataPath(targetDir), JSON.stringify(data, null, 2), { encoding: 'utf-8', mode: 0o600 })
 }
 
 /**
@@ -75,7 +97,14 @@ export function loadState(dir?: string): PersistenceData | null {
 
   try {
     const raw = readFileSync(path, 'utf-8')
-    return JSON.parse(raw) as PersistenceData
+    const parsed = JSON.parse(raw)
+    // Validate against schema to prevent deserialization attacks (CWE-502)
+    const result = persistenceSchema.safeParse(parsed)
+    if (!result.success) {
+      process.stderr.write(`Warning: invalid state file ${path}: ${result.error.message}\n`)
+      return null
+    }
+    return result.data as PersistenceData
   } catch (err) {
     process.stderr.write(`Warning: failed to load state from ${path}: ${err instanceof Error ? err.message : String(err)}\n`)
     return null

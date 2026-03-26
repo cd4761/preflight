@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { privateKeyToAccount } from 'viem/accounts'
 import { signAuthorization, verifyAuthorization } from '@clearance/eip7702'
-import { toolError, toolSuccess } from '../tool-helpers.js'
+import { toolError, toolSuccess, audit } from '../tool-helpers.js'
 
 const HEX_ADDRESS     = /^0x[0-9a-fA-F]{40}$/
 const HEX_PRIVATE_KEY = /^0x[0-9a-fA-F]{64}$/
@@ -19,12 +19,13 @@ const signAuthSchema = z.object({
   chainId: z
     .string()
     .regex(INTEGER_STRING, 'chainId must be a positive integer string')
+    .refine(v => BigInt(v) > 0n, 'chainId must be greater than 0')
     .describe('Chain ID (e.g. "11155111" for Sepolia)'),
   nonce: z
     .string()
     .regex(INTEGER_STRING, 'nonce must be a non-negative integer string')
     .optional()
-    .describe('EOA nonce at submission time. Defaults to 0 — use actual on-chain nonce in production.'),
+    .describe('EOA nonce at delegation time. Omit to use the library default (currently 0). Provide the actual on-chain nonce in production.'),
 })
 
 const verifyAuthSchema = z.object({
@@ -51,13 +52,18 @@ async function signAuthHandler(params: z.infer<typeof signAuthSchema>) {
         nonce:   params.nonce !== undefined ? BigInt(params.nonce) : undefined,
       }
     )
+    // Audit with masked key — NEVER log the actual private key
+    audit('sign_authorization', 'success', `signer=${auth.address}`)
+
     return toolSuccess({
       address:   auth.address,
       nonce:     auth.nonce.toString(),
       chainId:   auth.chainId.toString(),
       signature: auth.signature,
+      warning:   'Private keys should only be test keys. Never use real keys via MCP.',
     })
   } catch (err) {
+    audit('sign_authorization', 'error', 'signing failed')
     return toolError(err instanceof Error ? err.message : String(err))
   }
 }
