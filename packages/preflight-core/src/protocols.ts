@@ -134,7 +134,8 @@ export function getSupportedProtocols(chainId: number): readonly Protocol[] {
 export function getSupportedChainIds(): readonly number[] {
   const ids = new Set<number>()
   for (const key of Object.keys(REGISTRY)) {
-    ids.add(parseInt(key.split(':')[0]!, 10))
+    const [idStr] = key.split(':')
+    if (idStr) ids.add(parseInt(idStr, 10))
   }
   return [...ids].sort((a, b) => a - b)
 }

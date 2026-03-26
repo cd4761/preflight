@@ -76,7 +76,8 @@ export function loadState(dir?: string): PersistenceData | null {
   try {
     const raw = readFileSync(path, 'utf-8')
     return JSON.parse(raw) as PersistenceData
-  } catch {
+  } catch (err) {
+    process.stderr.write(`Warning: failed to load state from ${path}: ${err instanceof Error ? err.message : String(err)}\n`)
     return null
   }
 }

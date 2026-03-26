@@ -64,8 +64,11 @@ export function createStaticPriceProvider(prices: Readonly<Record<string, number
  * weiToUsd(1_000_000n, 1.0, 6) // 1.0 (USDC)
  */
 export function weiToUsd(amountWei: bigint, usdPrice: number, decimals: number = 18): number {
-  const divisor = 10 ** decimals
-  const tokenAmount = Number(amountWei) / divisor
+  // Split into whole + fractional to preserve precision for amounts > 2^53 wei
+  const divisor = BigInt(10 ** decimals)
+  const whole = amountWei / divisor
+  const frac = amountWei % divisor
+  const tokenAmount = Number(whole) + Number(frac) / Number(divisor)
   return tokenAmount * usdPrice
 }
 
@@ -76,6 +79,8 @@ export function weiToUsd(amountWei: bigint, usdPrice: number, decimals: number =
  * @param usdPrice - USD price per whole token
  * @param decimals - Token decimals (default: 18 for ETH)
  * @returns Token amount in wei (bigint)
+ *
+ * @remarks Rounds down (conservative) — the returned wei is at most the requested USD value.
  *
  * @example
  * usdToWei(3500, 3500, 18) // 1_000_000_000_000_000_000n (1 ETH)

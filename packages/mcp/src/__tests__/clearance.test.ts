@@ -262,6 +262,23 @@ describe('get_policy', () => {
     expect(data.spentAmounts.NATIVE).toBe('1000000000000000000')
     expect(data.remaining).toBe('4000000000000000000')
   })
+
+  it('should report expired policy correctly', async () => {
+    mockPolicy = {
+      maxAmount: 5000000000000000000n,
+      token: 'native',
+      expiresAt: 0, // already expired (Unix epoch)
+      spentAmounts: new Map(),
+    }
+    // check_clearance should reject expired policy
+    const checkResult = await checkClearanceTool.handler({
+      token: 'native',
+      amount: '1000000000000000000',
+    })
+    const checkData = parseToolResult(checkResult)
+    expect(checkData.allowed).toBe(false)
+    expect(checkData.reason).toBe('expired')
+  })
 })
 
 describe('delete_policy', () => {

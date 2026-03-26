@@ -66,6 +66,16 @@ describe('get_audit_trail tool', () => {
     // Should return the last 3 entries
     expect(data.entries[0].tool).toBe('tool-7')
   })
+
+  it('should evict old entries when exceeding max capacity', async () => {
+    for (let i = 0; i < 1001; i++) {
+      addAuditEntry({ timestamp: `t${i}`, tool: `tool-${i}`, result: 'success' })
+    }
+    const result = await getAuditTrailTool.handler({ limit: 100 })
+    const data = JSON.parse(result.content[0].text)
+    expect(data.total).toBe(1000)
+    expect(data.entries[0].tool).toBe('tool-901') // oldest surviving
+  })
 })
 
 describe('clear_audit_trail tool', () => {
