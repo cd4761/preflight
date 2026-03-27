@@ -10,7 +10,10 @@ const INTEGER_STRING = /^\d+$/
 
 /**
  * Block internal/cloud metadata IPs to prevent SSRF.
- * Rejects: loopback, RFC1918 private, link-local, AWS/GCP metadata.
+ * Rejects: loopback, RFC1918 private, link-local, AWS/GCP metadata, IPv6 variants.
+ *
+ * Limitation: DNS rebinding can bypass hostname checks. In production,
+ * combine with outbound firewall rules to fully prevent SSRF.
  */
 const BLOCKED_HOST_PATTERNS = [
   /^localhost$/i,
@@ -20,7 +23,10 @@ const BLOCKED_HOST_PATTERNS = [
   /^192\.168\./,
   /^169\.254\./,          // link-local + AWS metadata
   /^metadata\.google/i,   // GCP metadata
-  /^\[::1\]/,             // IPv6 loopback
+  /^\[?::1\]?$/,          // IPv6 loopback (bracketed and bare)
+  /^::ffff:/i,            // IPv4-mapped IPv6 (e.g. ::ffff:127.0.0.1)
+  /^\[?::\]?$/,           // IPv6 any (::)
+  /^0\.0\.0\.0$/,         // IPv4 any
 ]
 
 function isBlockedUrl(url: string): boolean {

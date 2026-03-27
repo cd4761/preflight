@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto'
 import { createPublicClient, http, defineChain, type Chain, type PublicClient } from 'viem'
 import { foundry } from 'viem/chains'
 import * as viemChains from 'viem/chains'
@@ -47,7 +48,7 @@ export interface Fork {
  * so port 0 (OS auto-assign) does not work — we must specify an explicit port.
  */
 function randomPort(): number {
-  return 49152 + Math.floor(Math.random() * (65535 - 49152))
+  return randomInt(49152, 65536)
 }
 
 /**

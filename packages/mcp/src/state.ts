@@ -1,6 +1,7 @@
 import type { ForkSession, ClearancePolicy, AuditEntry } from './types.js'
 
-const MAX_SESSIONS = parseInt(process.env.PREFLIGHT_MAX_SESSIONS ?? '5', 10)
+const parsedMaxSessions = parseInt(process.env.PREFLIGHT_MAX_SESSIONS ?? '5', 10)
+const MAX_SESSIONS = Number.isNaN(parsedMaxSessions) || parsedMaxSessions < 1 ? 5 : Math.min(parsedMaxSessions, 20)
 const sessions = new Map<string, ForkSession>()
 const clientCache = new Map<string, unknown>()
 let policy: ClearancePolicy | null = null

@@ -64,7 +64,8 @@ async function signAuthHandler(params: z.infer<typeof signAuthSchema>) {
     })
   } catch (err) {
     audit('sign_authorization', 'error', 'signing failed')
-    return toolError(err instanceof Error ? err.message : String(err))
+    // Never expose raw error — may contain private key fragments from viem internals
+    return toolError('Failed to sign authorization. Verify private key format and parameters.')
   }
 }
 
