@@ -63,6 +63,42 @@ describe('signAuthorization', () => {
       signAuthorization(testAccount, '0x123' as `0x${string}`)
     ).rejects.toThrow(/Invalid contract address/)
   })
+
+  it('should auto-resolve nonce from client when provided', async () => {
+    const mockClient = {
+      getTransactionCount: async () => 7,
+    } as unknown as import('viem').PublicClient
+
+    const auth = await signAuthorization(testAccount, TEST_CONTRACT, {
+      client: mockClient,
+    })
+    expect(auth.nonce).toBe(7n)
+  })
+
+  it('should prefer explicit nonce over client auto-resolve', async () => {
+    const mockClient = {
+      getTransactionCount: async () => 99,
+    } as unknown as import('viem').PublicClient
+
+    const auth = await signAuthorization(testAccount, TEST_CONTRACT, {
+      nonce: 5n,
+      client: mockClient,
+    })
+    expect(auth.nonce).toBe(5n) // explicit wins
+  })
+
+  it('should use correct address when calling client.getTransactionCount', async () => {
+    let capturedAddress: string | undefined
+    const mockClient = {
+      getTransactionCount: async (params: { address: string }) => {
+        capturedAddress = params.address
+        return 3
+      },
+    } as unknown as import('viem').PublicClient
+
+    await signAuthorization(testAccount, TEST_CONTRACT, { client: mockClient })
+    expect(capturedAddress?.toLowerCase()).toBe(testAccount.address.toLowerCase())
+  })
 })
 
 describe('verifyAuthorization', () => {

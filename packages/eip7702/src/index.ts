@@ -8,6 +8,7 @@ import {
   isAddress,
   recoverMessageAddress,
 } from 'viem'
+import type { PublicClient } from 'viem'
 import type { LocalAccount } from 'viem/accounts'
 import { createClearance, type Permissions, type Clearance } from '@clearance/core'
 
@@ -28,6 +29,13 @@ export type Authorization = {
 export type SignAuthOptions = {
   readonly chainId?: bigint
   readonly nonce?: bigint
+  /**
+   * If provided and nonce is omitted, the EOA's current on-chain nonce is
+   * fetched via `client.getTransactionCount()`. This is the recommended
+   * approach for production — hardcoding nonce=0 will fail if the EOA
+   * has any prior transactions.
+   */
+  readonly client?: PublicClient
 }
 
 /**
@@ -70,9 +78,17 @@ export async function signAuthorization(
     throw new Error(`Invalid chainId: ${chainId} — must be a positive integer`)
   }
 
-  // WARNING: nonce=0n is the default, but on-chain nonce must match the EOA's
-  // actual nonce at submission time. Always provide the correct nonce in production.
-  const nonce = options.nonce ?? 0n
+  // Resolve nonce: explicit > client auto-resolve > default 0n
+  let nonce: bigint
+  if (options.nonce !== undefined) {
+    nonce = options.nonce
+  } else if (options.client) {
+    nonce = BigInt(await options.client.getTransactionCount({ address: account.address }))
+  } else {
+    // WARNING: nonce=0n only works if the EOA has no prior transactions.
+    // Use `client` option for production to auto-resolve the on-chain nonce.
+    nonce = 0n
+  }
 
   const hash = getAuthorizationHash(chainId, contract, nonce)
   const signature = await account.signMessage({ message: { raw: hash } })
